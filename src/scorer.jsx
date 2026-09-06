@@ -63,15 +63,16 @@ function ScorerDesk({ matchId, fixture }) {
   useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
   useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 1500); return () => window.clearTimeout(t); }, [toast]);
 
-  const currentInn = state.innings.at(-1);
-  const score = currentInn ? computeInnings(currentInn.deliveries) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
-  const firstScore = state.innings[0] ? computeInnings(state.innings[0].deliveries) : null;
-  const target = state.innings.length > 1 && firstScore ? firstScore.runs + 1 : null;
-  const battingTeam = currentInn?.battingTeam || (state.innings.length === 0 ? setup.batting : fixture.t2);
+  const innings = Array.isArray(state?.innings) ? state.innings : [];
+  const currentInn = innings.at(-1);
+  const score = currentInn ? computeInnings(currentInn.deliveries || []) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
+  const firstScore = innings[0] ? computeInnings(innings[0].deliveries || []) : null;
+  const target = innings.length > 1 && firstScore ? firstScore.runs + 1 : null;
+  const battingTeam = currentInn?.battingTeam || (innings.length === 0 ? setup.batting : fixture.t2);
   const bowlingTeam = currentInn?.bowlingTeam || (battingTeam === fixture.t1 ? fixture.t2 : fixture.t1);
   const activeBattingPlayers = teams[battingTeam]?.players || [];
   const activeBowlingPlayers = teams[bowlingTeam]?.players || [];
-  const inningsCards = state.innings.map((inn, i) => ({ ...inn, score: computeInnings(inn.deliveries), index: i }));
+  const inningsCards = innings.map((inn, i) => ({ ...inn, score: computeInnings(inn.deliveries || []), index: i }));
   const dismissedPlayers = useMemo(() => unique((currentInn?.deliveries || []).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed)), [currentInn]);
   const remainingPlayers = useMemo(() => activeBattingPlayers.filter((p) => !dismissedPlayers.includes(p)), [activeBattingPlayers, dismissedPlayers]);
   const soloBatter = state.status === "live" && score.wickets >= MAX_WICKETS - 1 && remainingPlayers.length <= 1;
@@ -275,7 +276,7 @@ function ScorerDesk({ matchId, fixture }) {
     <div className="scoreboard-hero comic-panel dark-panel"><div className="scoreboard-team"><TeamBadge code={currentInn?.battingTeam || fixture.t1} large teams={teams} /><small>Batting</small></div><div className="score-main"><span className={`score-state state-${state.status}`}>{state.status}</span><strong>{score.runs}<em>/<WicketCount wickets={score.wickets} deliveries={currentInn?.deliveries || []} /></em></strong><span>{score.overs}.{score.balls} / {MAX_OVERS} overs {target ? `· target ${target}` : ""}</span></div><div className="scoreboard-team"><TeamBadge code={currentInn?.bowlingTeam || fixture.t2} large teams={teams} /><small>Bowling</small></div></div>
 
     {state.status === "upcoming" && <Setup fixture={fixture} teams={teams} setup={setup} setSetup={setSetup} onStart={startFirstInnings} />}
-    {state.status === "innings2" && <section className="innings-break comic-panel paper-panel"><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{fixture.t1 === state.innings[0]?.battingTeam ? fixture.t2 : fixture.t1} is chasing.</ComicTitle><p>First innings finished at {firstScore.runs}/{firstScore.wickets}.</p></div><button className="comic-button primary" onClick={startSecondInnings}>Start second innings <span>→</span></button></section>}
+    {state.status === "innings2" && <section className="innings-break comic-panel paper-panel"><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{fixture.t1 === innings[0]?.battingTeam ? fixture.t2 : fixture.t1} is chasing.</ComicTitle><p>First innings finished at {firstScore.runs}/{firstScore.wickets}.</p></div><button className="comic-button primary" onClick={startSecondInnings}>Start second innings <span>→</span></button></section>}
 
     {state.status === "live" && currentInn && <>
       <section className="comic-panel dark-panel active-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE CONTROL</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle></div><span className="live-chip"><i /> LIVE</span></div>
@@ -284,7 +285,7 @@ function ScorerDesk({ matchId, fixture }) {
         <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!state.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!state.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!state.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!state.live.bowler} onClick={openWicketModal}>WICKET</button></div>
         <div className="scoring-tools"><button className="tool-button wicket-tool" disabled={!state.live.bowler} onClick={openWicketModal}>Record wicket / retirement</button><span>Free hit: <b>{state.live.freeHit ? "ON" : "OFF"}</b></span><span>{score.legal} legal balls</span></div>
       </section>
-      <section className="scorer-lower"><article className="comic-panel paper-panel commentary-panel"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Expand ↗</button></div><Commentary deliveries={currentInn.deliveries} limit={6} /></article><article className="comic-panel paper-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE FIGURES</span><ComicTitle as="h2">Scorecard</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>Open ↗</button></div><Scorecard innings={state.innings} /></article></section>
+      <section className="scorer-lower"><article className="comic-panel paper-panel commentary-panel"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Expand ↗</button></div><Commentary deliveries={currentInn.deliveries} limit={6} /></article><article className="comic-panel paper-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE FIGURES</span><ComicTitle as="h2">Scorecard</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>Open ↗</button></div><Scorecard innings={innings} /></article></section>
       <PlayerStats state={state} teamCodes={[fixture.t1, fixture.t2]} teams={teams} mode="scorer" />
     </>}
 
@@ -296,7 +297,7 @@ function ScorerDesk({ matchId, fixture }) {
     {newBatsmanOpen && <NewBatsmanModal origin={newBatsmanOrigin} battingPlayers={activeBattingPlayers} live={state.live} dismissedPlayers={dismissedPlayers} excluded={newBatsmanExcluded} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => { setNewBatsmanOpen(false); setNewBatsmanSlot(""); setNewBatsmanExcluded(""); }} onSubmit={confirmNewBatsman} onSkip={skipNewBatsman} />}
     {bowlerOpen && <BowlerModal origin={bowlerOrigin} bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
     {commentaryOpen && <Modal origin={commentaryOrigin} onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive" morphName="commentary-morph"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
-    {scorecardOpen && <ScorecardModal innings={state.innings} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} morphName="scorecard-morph" />}
+    {scorecardOpen && <ScorecardModal innings={innings} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} morphName="scorecard-morph" />}
     {toast && <div className="toast">{toast}</div>}
   </main></SiteFrame>;
 }

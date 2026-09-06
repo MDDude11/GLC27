@@ -306,7 +306,8 @@ export function TeamBadge({ code, large = false, teams = TEAMS }) {
 }
 
 export function ScoreMini({ state, fixture }) {
-  const scores = state.innings.map((inn) => computeInnings(inn.deliveries));
+  const innings = Array.isArray(state?.innings) ? state.innings : [];
+  const scores = innings.map((inn) => computeInnings(inn.deliveries || []));
   if (!scores.length) return <span className="score-empty">NO SCORE RECORDED</span>;
   return <>{scores.map((score, index) => <span key={`${fixture.id}-score-${index}`}>{fixture[index === 0 ? "t1" : "t2"]} <b>{score.runs}/{score.wickets}</b> <small>({score.overs}.{score.balls})</small></span>)}</>;
 }

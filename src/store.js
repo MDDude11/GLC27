@@ -3,11 +3,32 @@ import { clone, playerStatsForMatch } from "./engine.js";
 import { seedFirebaseMatch, subscribeFirebaseMatch, writeFirebaseMatch, getFirebaseInternalMatch, listFirebaseInternalMatches, seedFirebaseInternalMatch, subscribeFirebaseInternalMatch, writeFirebaseInternalMatch, writeFirebaseInternalPlayerStats } from "./firebase.js";
 import { INTERNAL_STORAGE_KEY, isInternalMatchId } from "./admin.js";
 
+function normalizeMatchRecord(match, id = "") {
+  const base = emptyMatch();
+  const source = match && typeof match === "object" ? match : {};
+  const innings = Array.isArray(source.innings)
+    ? source.innings.map((inn) => ({
+        battingTeam: inn?.battingTeam || "",
+        bowlingTeam: inn?.bowlingTeam || "",
+        deliveries: Array.isArray(inn?.deliveries) ? inn.deliveries : []
+      }))
+    : [];
+
+  return {
+    ...base,
+    ...source,
+    ...(id ? { id } : {}),
+    status: source.status || base.status,
+    innings,
+    live: { ...base.live, ...(source.live && typeof source.live === "object" ? source.live : {}) }
+  };
+}
+
 function normalizeStore(parsed) {
   if (!parsed?.matches) return null;
   const normalized = { matches: {} };
   for (const [id, match] of Object.entries(parsed.matches)) {
-    normalized.matches[id] = { ...emptyMatch(), ...match, live: { ...emptyMatch().live, ...(match.live || {}) } };
+    normalized.matches[id] = normalizeMatchRecord(match, id);
   }
   return normalized;
 }
@@ -30,7 +51,11 @@ export function loadStore() {
 }
 
 function normalizeInternalStore(parsed) {
-  return parsed?.matches && typeof parsed.matches === "object" ? parsed : { matches: {} };
+  if (!parsed?.matches || typeof parsed.matches !== "object") return { matches: {} };
+  return {
+    ...parsed,
+    matches: Object.fromEntries(Object.entries(parsed.matches).map(([id, match]) => [id, normalizeMatchRecord(match, id)]))
+  };
 }
 
 export function loadInternalStore() {
@@ -43,8 +68,8 @@ export function saveStore(store) { persistLocalStore(store); }
 export function saveInternalStore(store) { persistInternalStore(store); }
 
 export function getMatch(id) {
-  if (isInternalMatchId(id)) return loadInternalStore().matches[id] || emptyMatch();
-  return loadStore().matches[id] || emptyMatch();
+  if (isInternalMatchId(id)) return normalizeMatchRecord(loadInternalStore().matches[id], id);
+  return normalizeMatchRecord(loadStore().matches[id], id);
 }
 
 function buildInternalCareerStats(matches) {
@@ -89,7 +114,8 @@ function syncInternalMatch(matchId, match) {
 }
 
 export function getInternalFixtureLocal(id) {
-  return loadInternalStore().matches[id] || null;
+  const match = loadInternalStore().matches[id];
+  return match ? normalizeMatchRecord(match, id) : null;
 }
 
 export async function resolveMatchFixture(id) {
@@ -102,10 +128,11 @@ export async function resolveMatchFixture(id) {
   try {
     const remote = await getFirebaseInternalMatch(id);
     if (remote) {
+      const normalized = normalizeMatchRecord(remote, id);
       const store = loadInternalStore();
-      store.matches[id] = remote;
+      store.matches[id] = normalized;
       persistInternalStore(store);
-      return remote;
+      return normalized;
     }
   } catch (error) {
     console.warn(`Unable to resolve internal match ${id}.`, error);
@@ -117,7 +144,9 @@ export async function listInternalMatches() {
   const local = loadInternalStore().matches;
   try {
     const remote = await listFirebaseInternalMatches();
-    const merged = { ...local, ...remote };
+    const merged = Object.fromEntries(
+      Object.entries({ ...local, ...(remote || {}) }).map(([id, match]) => [id, normalizeMatchRecord(match, id)])
+    );
     persistInternalStore({ matches: merged });
     return merged;
   } catch (error) {
@@ -201,17 +230,19 @@ export function useLiveMatchState(id, setState) {
       try { existing = await getFirebaseInternalMatch(id); } catch (error) { console.warn(`Firebase internal seed failed for ${id}.`, error); }
       if (!active) return;
       if (existing) {
+        const normalized = normalizeMatchRecord(existing, id);
         const store = loadInternalStore();
-        store.matches[id] = existing;
+        store.matches[id] = normalized;
         persistInternalStore(store);
-        setState(existing);
+        setState(normalized);
       }
       const unsubscribe = await subscribeFirebaseInternalMatch(id, (remoteMatch) => {
         if (!active || !remoteMatch) return;
+        const normalized = normalizeMatchRecord(remoteMatch, id);
         const store = loadInternalStore();
-        store.matches[id] = remoteMatch;
+        store.matches[id] = normalized;
         persistInternalStore(store);
-        setState(clone(remoteMatch));
+        setState(clone(normalized));
         window.dispatchEvent(new CustomEvent(eventName, { detail: id, remote: true }));
       });
       if (active && typeof unsubscribe === "function") unsubscribeFirebase = unsubscribe;
