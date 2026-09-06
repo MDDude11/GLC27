@@ -176,12 +176,13 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 /* .dark-panel is a theme-adaptive "ink" card: it always follows --surface/--text as a pair,
    so contrast holds in both light and dark mode instead of forcing a fixed white-on-dark look. */
 .dark-panel { background:var(--surface); color:var(--text); }
-/* Modals/pages that are always a dramatic dark "ink" surface, regardless of site theme. */
-.commentary-modal.dark-panel, .password-page .dark-panel { background:var(--ink-panel-bg); color:var(--ink-panel-text); }
-.commentary-modal.dark-panel p, .commentary-modal.dark-panel label { color:var(--ink-panel-text); }
-.commentary-modal.dark-panel .comic-title { color:#fff8ec; }
-.commentary-modal.dark-panel .comic-title::before { background:var(--blue); }
-.commentary-modal.dark-panel .panel-kicker, .commentary-modal.dark-panel .eyebrow { color:var(--ink-panel-muted); }
+/* Commentary popup follows the active site theme; password pages may remain ink-dark. */
+.commentary-modal.dark-panel { background:var(--surface); color:var(--text); }
+.commentary-modal.dark-panel p, .commentary-modal.dark-panel label { color:var(--text); }
+html[data-theme="light"] .commentary-modal.dark-panel .comic-title { color:var(--ink); }
+html:not([data-theme="light"]) .commentary-modal.dark-panel .comic-title { color:var(--text); }
+.commentary-modal.dark-panel .comic-title::before { background:var(--yellow); }
+.commentary-modal.dark-panel .panel-kicker, .commentary-modal.dark-panel .eyebrow { color:var(--text-muted); }
 .paper-panel p, .paper-panel label, .paper-panel h3, .paper-panel h4 { color:var(--ink); }
 .dark-panel p, .dark-panel label, .dark-panel h3, .dark-panel h4 { color:var(--text); }
 .panel-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
@@ -321,7 +322,7 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 .commentary-row > div { min-width:0; display:grid; gap:2px; }
 .commentary-row > div span { color:var(--ink-soft); font-size:11px; overflow-wrap:anywhere; }
 .dark-panel .commentary-row > div span { color:var(--text-muted); }
-.commentary-modal.dark-panel .commentary-row > div span { color:var(--ink-panel-muted); }
+.commentary-modal.dark-panel .commentary-row > div span { color:var(--text-muted); }
 .commentary-row > small { color:var(--text-muted); font-family:"Barlow Condensed"; font-size:9px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
 .ball-mark { display:inline-grid; place-items:center; min-width:40px; min-height:34px; padding:5px 6px; border:2px solid var(--line); color:var(--ink); background:var(--paper-light); box-shadow:3px 3px 0 var(--line); font-family:"Bangers"; font-size:20px; }
 .commentary-row.is-wicket .ball-mark { background:var(--red); color:var(--ink); }
