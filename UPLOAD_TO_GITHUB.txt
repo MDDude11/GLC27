@@ -1,0 +1,10 @@
+GLC27 v11 FIXED package
+
+1. Delete the existing contents of the GitHub repository's main branch.
+2. Extract this ZIP locally.
+3. Upload the CONTENTS of this folder to the ROOT of the GitHub repository.
+   package.json, index.html, src/, .github/, etc. must be at repository root.
+4. Commit to the main branch.
+5. GitHub Actions should run automatically.
+
+Do not upload the outer folder itself as a nested folder.
