@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { MATCHES, MAX_OVERS, scorerPath, TEAMS } from "./data.js";
+import { isInternalMatchId } from "./admin.js";
 import { computeInnings, activeBatters, currentBowler } from "./engine.js";
-import { getMatch, useLiveMatchState, resolveMatchFixture } from "./store.js";
+import { getMatch, resolveMatchFixture } from "./store.js";
+import { subscribeFirebaseInternalMatch, subscribeFirebaseMatch } from "./firebase.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, DetailedStatsModal, Modal, morphOpen, WicketCount } from "./components.jsx";
 
 const originFromEvent = (event) => {
@@ -47,7 +49,44 @@ export default function ViewerPage({ matchId }) {
     return () => { active = false; };
   }, [matchId]);
 
-  useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+
+    const start = async () => {
+      try {
+        // Always subscribe directly to the authoritative Firebase record.
+        // This is especially important for internal matches because a public
+        // viewer on another device may have no matching localStorage record.
+        const onRemote = (remoteMatch) => {
+          if (!active || !remoteMatch) return;
+          setState(remoteMatch);
+        };
+
+        const onError = (error) => {
+          console.warn(`Live viewer subscription failed for ${matchId}.`, error);
+        };
+
+        const maybeUnsubscribe = isInternalMatchId(matchId)
+          ? await subscribeFirebaseInternalMatch(matchId, onRemote, onError)
+          : await subscribeFirebaseMatch(matchId, onRemote, onError);
+
+        if (!active) {
+          maybeUnsubscribe?.();
+          return;
+        }
+        if (typeof maybeUnsubscribe === "function") unsubscribe = maybeUnsubscribe;
+      } catch (error) {
+        console.warn(`Live viewer subscription could not start for ${matchId}.`, error);
+      }
+    };
+
+    void start();
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [matchId]);
 
   const innings = Array.isArray(state?.innings) ? state.innings : [];
   const current = innings.at(-1);
