@@ -1,4 +1,4 @@
-# GLsiteITB13 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB14 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
 Version 13 internal test build / publish candidate.
 
@@ -40,7 +40,7 @@ To deploy the Realtime Database rules as well:
 The current `database.rules.json` is intentionally open for this internal test build. Tighten the rules before any public production deployment.
 
 
-## v13 internal admin
+## v14 internal admin
 
 Settings contains a restricted Admin Mode at the bottom. The development fallback password is `DRAFTSADMIN11`; set `VITE_ADMIN_PASSWORD` before publishing to use your own password. The GitHub Pages workflow reads the GitHub Actions secret `VITE_ADMIN_PASSWORD`. This is a client-side gate, not secure authentication, because a static-site password is present in the browser bundle after build.
 
@@ -49,7 +49,7 @@ Internal matches use Firebase Realtime Database under `/internalMatches/<matchId
 GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses `firebase.json` and the same static build.
 
 
-## v13 changes
+## v14 changes
 
 - Internal test matches remain isolated under Firebase `internalMatches`.
 - Internal match creation is Firebase-first and verified before local caching, with REST fallback.

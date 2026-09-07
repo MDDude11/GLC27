@@ -1772,6 +1772,10 @@ html:not([data-theme="light"]) .comic-title * {
   .admin-match-form select { font-size: 15px; }
 }
 
-@media (prefers-reduced-motion: reduce), html[data-reduce-motion="1"] {
+@media (prefers-reduced-motion: reduce) {
   .internal-match-card { animation: none !important; }
+}
+
+html[data-reduce-motion="1"] .internal-match-card {
+  animation: none !important;
 }
