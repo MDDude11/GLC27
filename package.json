@@ -1,7 +1,7 @@
 {
-  "name": "glt-drafts-2026-comic-match-desk",
+  "name": "glt-drafts-2027-itb13-comic-match-desk",
   "private": true,
-  "version": "12.0.0",
+  "version": "13.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,5 +15,5 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {},
-  "description": "GLsiteITB12 internal test build for The DRAFTS live match desk"
+  "description": "GLsiteITB13 internal test build for The DRAFTS live match desk"
 }

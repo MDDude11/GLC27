@@ -110,170 +110,321 @@ export async function seedFirebaseMatch(matchId, match) {
 const INTERNAL_ROOT = "internalMatches";
 
 export async function subscribeFirebaseInternalMatches(onMatches, onError) {
+  let active = true;
+  let sdkUnsubscribe = () => {};
+  let pollTimer = null;
+  let polling = false;
+
+  const emit = (value) => {
+    if (active) onMatches(value || {});
+  };
+
+  const pollOnce = async () => {
+    try {
+      const response = await fetch(
+        firebaseRestUrl(INTERNAL_ROOT),
+        { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+      );
+      if (!response.ok) throw new Error(`Firebase REST GET failed (${response.status})`);
+      emit(await response.json());
+    } catch (error) {
+      onError?.(error);
+    }
+  };
+
+  const startPolling = () => {
+    if (polling || !active) return;
+    polling = true;
+    const poll = async () => {
+      if (!active) return;
+      await pollOnce();
+      if (active) pollTimer = window.setTimeout(poll, 1800);
+    };
+    void poll();
+  };
+
   try {
     const { database, ref, onValue } = await loadFirebase();
-
-    return onValue(
+    sdkUnsubscribe = onValue(
       ref(database, INTERNAL_ROOT),
-      (snapshot) => {
-        onMatches(snapshot.exists() ? (snapshot.val() || {}) : {});
-      },
+      (snapshot) => emit(snapshot.exists() ? snapshot.val() : {}),
       (error) => {
-        console.warn("Firebase internal match list subscription failed.", error);
+        console.warn("Firebase internal match list subscription failed; using REST fallback.", error);
         onError?.(error);
+        startPolling();
       }
     );
   } catch (error) {
-    console.warn("Firebase internal match list subscription could not start.", error);
+    console.warn("Firebase internal match list subscription could not start; using REST fallback.", error);
     onError?.(error);
-    return () => {};
+    startPolling();
   }
+
+  return () => {
+    active = false;
+    sdkUnsubscribe?.();
+    if (pollTimer) window.clearTimeout(pollTimer);
+  };
 }
 
-function firebaseRestUrl(path) {
-  return `${firebaseConfig.databaseURL}/${path}.json`;
-}
-
-async function writeFirebaseInternalMatchRest(matchId, match) {
+async function readFirebaseInternalMatchRest(matchId) {
   const response = await fetch(
-    firebaseRestUrl(`${INTERNAL_ROOT}/${encodeURIComponent(matchId)}`),
+    firebaseRestUrl(
+      `${INTERNAL_ROOT}/${encodeURIComponent(matchId)}`
+    ),
     {
-      method: "PUT",
+      method: "GET",
       cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(match)
+      headers: {
+        Accept: "application/json"
+      }
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Firebase REST PUT failed (${response.status})`);
+    throw new Error(
+      `Firebase REST GET failed (${response.status})`
+    );
   }
 
   return response.json();
 }
 
-/**
- * Internal matches deliberately use the same direct Realtime Database
- * subscription model as the public/demo matches. The previous v11 path
- * combined SDK onValue + REST polling + JSON de-duplication, which created a
- * second state machine and could cause viewer updates to be missed.
- */
-export async function subscribeFirebaseInternalMatch(matchId, onMatch, onError) {
+async function writeFirebaseInternalMatchRest(matchId, match) {
+  const response = await fetch(
+    firebaseRestUrl(
+      `${INTERNAL_ROOT}/${encodeURIComponent(matchId)}`
+    ),
+    {
+      method: "PUT",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(match)
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Firebase REST PUT failed (${response.status})`
+    );
+  }
+
+  return response.json();
+}
+
+export async function subscribeFirebaseInternalMatch(
+  matchId,
+  onMatch,
+  onError
+) {
+  let active = true;
+  let sdkUnsubscribe = () => {};
+  let pollTimer = null;
+  let polling = false;
+
+  const emitRemote = (value) => {
+    if (!active || value == null) return;
+    onMatch(value);
+  };
+
+  const readOnce = async () => {
+    try {
+      const remote = await readFirebaseInternalMatchRest(matchId);
+      if (remote != null) emitRemote(remote);
+      return true;
+    } catch (error) {
+      onError?.(error);
+      return false;
+    }
+  };
+
+  const startPolling = () => {
+    if (polling || !active) return;
+    polling = true;
+
+    const poll = async () => {
+      if (!active) return;
+      await readOnce();
+      if (active) pollTimer = window.setTimeout(poll, 1500);
+    };
+
+    void poll();
+  };
+
   try {
     const { database, ref, onValue } = await loadFirebase();
-
-    return onValue(
+    sdkUnsubscribe = onValue(
       ref(database, `${INTERNAL_ROOT}/${matchId}`),
       (snapshot) => {
-        onMatch(snapshot.exists() ? snapshot.val() : null);
+        if (snapshot.exists()) emitRemote(snapshot.val());
       },
       (error) => {
-        console.warn(`Firebase internal match subscription failed for ${matchId}.`, error);
+        console.warn(
+          `Firebase realtime subscription failed for ${matchId}; using REST fallback.`,
+          error
+        );
         onError?.(error);
+        startPolling();
       }
     );
   } catch (error) {
-    console.warn(`Firebase internal match subscription could not start for ${matchId}.`, error);
+    console.warn(
+      `Firebase realtime subscription could not start for ${matchId}; using REST fallback.`,
+      error
+    );
     onError?.(error);
-    return () => {};
+    startPolling();
   }
+
+  return () => {
+    active = false;
+    sdkUnsubscribe?.();
+    if (pollTimer) window.clearTimeout(pollTimer);
+  };
 }
 
 export function writeFirebaseInternalMatch(matchId, match) {
-  const previous = internalWriteQueues.get(matchId) || Promise.resolve();
+  const previous =
+    internalWriteQueues.get(matchId) ||
+    Promise.resolve();
 
   const next = previous
     .catch(() => {})
     .then(async () => {
       try {
-        const { database, ref, set } = await loadFirebase();
-        await set(ref(database, `${INTERNAL_ROOT}/${matchId}`), match);
+        const { database, ref, set } =
+          await loadFirebase();
+
+        await set(
+          ref(
+            database,
+            `${INTERNAL_ROOT}/${matchId}`
+          ),
+          match
+        );
       } catch (error) {
-        console.warn(`Firebase SDK write failed for ${matchId}; trying REST write.`, error);
-        await writeFirebaseInternalMatchRest(matchId, match);
+        console.warn(
+          `Firebase SDK write failed for ${matchId}; trying REST write.`,
+          error
+        );
+
+        await writeFirebaseInternalMatchRest(
+          matchId,
+          match
+        );
       }
     });
 
-  internalWriteQueues.set(matchId, next);
-  next.then(clearQueuedWrite, clearQueuedWrite);
+  internalWriteQueues.set(
+    matchId,
+    next
+  );
 
-  return next;
-
-  function clearQueuedWrite() {
-    if (internalWriteQueues.get(matchId) === next) {
+  void next.finally(() => {
+    if (
+      internalWriteQueues.get(matchId) === next
+    ) {
       internalWriteQueues.delete(matchId);
     }
-  }
+  });
+
+  return next;
 }
 
 export async function seedFirebaseInternalMatch(
   matchId,
   match
 ) {
-  const {
-    database,
-    ref,
-    get,
-    set
-  } = await loadFirebase();
+  // Prefer the SDK, but fall back to the same RTDB REST endpoint used by the
+  // viewer when the SDK cannot initialise or a browser/network path rejects it.
+  try {
+    const { database, ref, get, set } = await loadFirebase();
+    const snapshot = await get(ref(database, `${INTERNAL_ROOT}/${matchId}`));
 
-  const snapshot = await get(
-    ref(
-      database,
-      `${INTERNAL_ROOT}/${matchId}`
-    )
-  );
+    if (snapshot.exists()) return snapshot.val();
 
-  if (snapshot.exists()) {
-    return snapshot.val();
+    await set(ref(database, `${INTERNAL_ROOT}/${matchId}`), match);
+
+    // Verify through the same SDK connection first. If that read fails, the
+    // outer catch below falls back to REST rather than manufacturing local data.
+    const verified = await get(ref(database, `${INTERNAL_ROOT}/${matchId}`));
+    if (!verified.exists()) throw new Error(`Firebase did not persist internal match ${matchId}.`);
+    return verified.val();
+  } catch (error) {
+    console.warn(
+      `Firebase SDK seed failed for ${matchId}; trying REST seed.`,
+      error
+    );
+
+    const existing = await readFirebaseInternalMatchRest(matchId);
+    if (existing != null) return existing;
+
+    return writeFirebaseInternalMatchRest(matchId, match);
   }
-
-  await set(
-    ref(
-      database,
-      `${INTERNAL_ROOT}/${matchId}`
-    ),
-    match
-  );
-
-  return match;
 }
 
 export async function getFirebaseInternalMatch(
   matchId
 ) {
-  const {
-    database,
-    ref,
-    get
-  } = await loadFirebase();
-
-  const snapshot = await get(
-    ref(
-      database,
-      `${INTERNAL_ROOT}/${matchId}`
-    )
-  );
-
-  return snapshot.exists()
-    ? snapshot.val()
-    : null;
+  try {
+    const { database, ref, get } = await loadFirebase();
+    const snapshot = await get(ref(database, `${INTERNAL_ROOT}/${matchId}`));
+    if (snapshot.exists()) return snapshot.val();
+    return null;
+  } catch (error) {
+    console.warn(
+      `Firebase SDK read failed for ${matchId}; trying REST read.`,
+      error
+    );
+    return readFirebaseInternalMatchRest(matchId);
+  }
 }
 
 export async function listFirebaseInternalMatches() {
-  const {
-    database,
-    ref,
-    get
-  } = await loadFirebase();
+  try {
+    const { database, ref, get } = await loadFirebase();
+    const snapshot = await get(ref(database, INTERNAL_ROOT));
+    return snapshot.exists() ? (snapshot.val() || {}) : {};
+  } catch (error) {
+    console.warn(
+      "Firebase SDK internal match list read failed; trying REST read.",
+      error
+    );
 
-  const snapshot = await get(
-    ref(database, INTERNAL_ROOT)
-  );
+    const response = await fetch(
+      firebaseRestUrl(INTERNAL_ROOT),
+      { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+    );
 
-  return snapshot.exists()
-    ? (snapshot.val() || {})
-    : {};
+    if (!response.ok) throw new Error(`Firebase REST GET failed (${response.status})`);
+    return (await response.json()) || {};
+  }
+}
+
+export async function deleteFirebaseInternalMatch(matchId) {
+  try {
+    const { database, ref, get, set } = await loadFirebase();
+    await set(ref(database, `${INTERNAL_ROOT}/${matchId}`), null);
+
+    const verified = await get(ref(database, `${INTERNAL_ROOT}/${matchId}`));
+    if (verified.exists()) throw new Error(`Firebase did not delete internal match ${matchId}.`);
+    return true;
+  } catch (error) {
+    console.warn(
+      `Firebase SDK delete failed for ${matchId}; trying REST delete.`,
+      error
+    );
+
+    const response = await fetch(
+      firebaseRestUrl(`${INTERNAL_ROOT}/${encodeURIComponent(matchId)}`),
+      { method: "DELETE", cache: "no-store", headers: { Accept: "application/json" } }
+    );
+
+    if (!response.ok) throw new Error(`Firebase REST DELETE failed (${response.status})`);
+    return true;
+  }
 }
 
 export async function writeFirebaseInternalPlayerStats(

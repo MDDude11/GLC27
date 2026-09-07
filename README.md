@@ -1,6 +1,6 @@
-# GLsiteITB12 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB13 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 12 internal test / publish candidate.
+Version 13 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -40,10 +40,22 @@ To deploy the Realtime Database rules as well:
 The current `database.rules.json` is intentionally open for this internal test build. Tighten the rules before any public production deployment.
 
 
-## v12 internal admin
+## v13 internal admin
 
 Settings contains a restricted Admin Mode at the bottom. The development fallback password is `DRAFTSADMIN11`; set `VITE_ADMIN_PASSWORD` before publishing to use your own password. The GitHub Pages workflow reads the GitHub Actions secret `VITE_ADMIN_PASSWORD`. This is a client-side gate, not secure authentication, because a static-site password is present in the browser bundle after build.
 
 Internal matches use Firebase Realtime Database under `/internalMatches/<matchId>` and are deliberately separate from the official GLC27 `/matches/<matchId>` namespace. Each internal match stores its custom 3v3 teams, delivery log, and a `playerStats` snapshot including batting runs/balls/fours/sixes/highest score/strike rate, bowling overs/runs/wickets/wides/no-balls/economy, and fielding catches/run-outs/stumpings.
 
 GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses `firebase.json` and the same static build.
+
+
+## v13 changes
+
+- Internal test matches remain isolated under Firebase `internalMatches`.
+- Internal match creation is Firebase-first and verified before local caching, with REST fallback.
+- Internal match subscriptions use direct RTDB realtime updates with REST fallback.
+- Internal matches can be deleted from the admin panel.
+- Create Match is guarded against duplicate rapid submissions.
+- Internal archive cards use stable pastel comic colours with spacing between repeated colour families.
+- Internal admin form typography and small-text contrast were cleaned up for both themes.
+- Landing presenter label is `The Host presents`.

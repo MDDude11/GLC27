@@ -19,6 +19,7 @@ import {
   seedFirebaseInternalMatch,
   subscribeFirebaseInternalMatch,
   writeFirebaseInternalMatch,
+  deleteFirebaseInternalMatch,
   writeFirebaseInternalPlayerStats
 } from "./firebase.js";
 
@@ -432,6 +433,15 @@ export async function resolveMatchFixture(id) {
 
       return normalized;
     }
+
+    // A successful Firebase read returning null means the match does not exist.
+    // Remove any stale local cache so deleted internal matches cannot reappear.
+    const localStore = loadInternalStore();
+    if (localStore.matches[id]) {
+      delete localStore.matches[id];
+      persistInternalStore(localStore);
+    }
+    return null;
   } catch (error) {
     console.warn(
       `Unable to resolve internal Firebase match ${id}.`,
@@ -462,16 +472,13 @@ export async function listInternalMatches() {
         );
     }
 
-    const merged = {
-      ...local,
-      ...normalizedRemote
-    };
-
+    // A successful Firebase list is authoritative. Do not resurrect deleted or
+    // never-persisted matches from localStorage. Local data is only an offline fallback.
     persistInternalStore({
-      matches: merged
+      matches: normalizedRemote
     });
 
-    return merged;
+    return normalizedRemote;
   } catch (error) {
     console.warn(
       "Unable to list internal Firebase matches.",
@@ -485,37 +492,69 @@ export async function listInternalMatches() {
 export async function createInternalMatch(match) {
   const withStats = {
     ...match,
-
-    playerStats:
-      playerStatsForMatch(match),
-
-    updatedAt:
-      new Date().toISOString()
+    playerStats: playerStatsForMatch(match),
+    updatedAt: new Date().toISOString()
   };
 
-  const store =
-    loadInternalStore();
-
-  store.matches[match.id] =
-    withStats;
-
-  persistInternalStore(store);
-
-  await seedFirebaseInternalMatch(
+  // Firebase is authoritative. Do not persist a local "ghost" match until the
+  // remote record has been created and verified. This is what makes a newly
+  // created internal match immediately usable from another browser/incognito.
+  const remote = await seedFirebaseInternalMatch(
     match.id,
     withStats
   );
 
+  const saved = normalizeInternalRemoteMatch(
+    match.id,
+    remote || withStats
+  );
+
+  const store = loadInternalStore();
+  store.matches[match.id] = saved;
+  persistInternalStore(store);
+
   window.dispatchEvent(
     new CustomEvent(
       "glt-internal-match-updated",
-      {
-        detail: match.id
-      }
+      { detail: match.id, remote: true }
     )
   );
 
-  return withStats;
+  return saved;
+}
+
+export async function deleteInternalMatch(id) {
+  if (!isInternalMatchId(id)) {
+    throw new Error("Only internal test matches can be deleted here.");
+  }
+
+  await deleteFirebaseInternalMatch(id);
+
+  const store = loadInternalStore();
+  delete store.matches[id];
+  persistInternalStore(store);
+
+  // Keep the aggregate internal player-stat store consistent with the deleted
+  // match. A match deletion must remove its contribution to career totals too.
+  try {
+    await writeFirebaseInternalPlayerStats(
+      buildInternalCareerStats(store.matches)
+    );
+  } catch (error) {
+    console.warn(
+      "Firebase internal player stats cleanup failed after match deletion.",
+      error
+    );
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "glt-internal-match-updated",
+      { detail: id, deleted: true, remote: true }
+    )
+  );
+
+  return true;
 }
 
 export function resetMatch(id) {
