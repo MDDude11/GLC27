@@ -1617,3 +1617,217 @@ html[data-reduce-motion="1"] .central-scorecard-button:active {
   .landing-enter { transform: translateX(-50%); }
   .landing-enter:hover { transform: translateX(-50%) !important; }
 }
+
+/* ============================================================
+   v12 final visual system: theme-safe contrast + restrained motion
+   ============================================================ */
+:root {
+  color-scheme: dark;
+  --title-edge: rgba(255, 248, 236, .92);
+  --paper-muted: #5b5348;
+  --surface-muted: #c4baab;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --title-edge: rgba(255, 253, 246, .92);
+  --paper-muted: #5b5348;
+  --surface-muted: #5f574c;
+}
+
+html:not([data-theme="light"]) {
+  --paper-muted: #c4baab;
+  --surface-muted: #c4baab;
+}
+
+/* Avoid the old global dark/light text-shadow collision. Text contrast comes
+   from the semantic foreground variables and only deliberately outlined art
+   uses a text shadow. */
+body { text-shadow: none; }
+
+/* Titles remain recognisably comic-style while staying readable against both
+   the yellow marker and the surrounding dark/light card. */
+.comic-title,
+.comic-title * {
+  color: var(--ink) !important;
+  text-shadow: 2px 2px 0 var(--title-edge), -1px -1px 0 var(--title-edge) !important;
+}
+html:not([data-theme="light"]) .comic-title,
+html:not([data-theme="light"]) .comic-title * {
+  color: var(--text) !important;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.48), -1px -1px 0 rgba(255,248,236,.62) !important;
+}
+/* These are deliberately dark programme/modal surfaces; retain their light title ink
+   even when the surrounding site is in light mode. */
+.glc-half .comic-title,
+.teaser-dark .comic-title,
+.commentary-modal .comic-title {
+  color: #fff8ec !important;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.55), -1px -1px 0 rgba(255,248,236,.35) !important;
+}
+
+/* The following elements switch background with the site theme. Their muted
+   copy therefore must switch at the same time. */
+html[data-theme="light"] .match-card-top,
+html[data-theme="light"] .match-card-bottom,
+html[data-theme="light"] .viewer-stat small,
+html[data-theme="light"] .viewer-player > span:last-child,
+html[data-theme="light"] .scorecard-title span,
+html[data-theme="light"] .table-row small,
+html[data-theme="light"] .player-stat-card .stat-cluster small,
+html[data-theme="light"] .player-stat-card .stat-cluster span,
+html[data-theme="light"] .player-stat-card .scorer-extra,
+html[data-theme="light"] .headline-metrics small,
+html[data-theme="light"] .future-rr-grid article > small,
+html[data-theme="light"] .text-reset {
+  color: var(--paper-muted) !important;
+}
+
+html:not([data-theme="light"]) .match-card-top,
+html:not([data-theme="light"]) .match-card-bottom,
+html:not([data-theme="light"]) .viewer-stat small,
+html:not([data-theme="light"]) .viewer-player > span:last-child,
+html:not([data-theme="light"]) .scorecard-title span,
+html:not([data-theme="light"]) .table-row small,
+html:not([data-theme="light"]) .player-stat-card .stat-cluster small,
+html:not([data-theme="light"]) .player-stat-card .stat-cluster span,
+html:not([data-theme="light"]) .player-stat-card .scorer-extra,
+html:not([data-theme="light"]) .headline-metrics small,
+html:not([data-theme="light"]) .future-rr-grid article > small,
+html:not([data-theme="light"]) .text-reset {
+  color: var(--surface-muted) !important;
+}
+
+/* Text inside deliberately paper-coloured controls stays ink-coloured even
+   when the surrounding scorer/admin surface is dark. */
+.dismissed-lock > span,
+.dismissed-fixed span,
+.dismissed-option small,
+.runout-controls p,
+.modal-shell.paper-panel > p,
+.modal-shell.paper-panel label,
+.modal-shell.paper-panel .panel-kicker,
+.modal-shell.paper-panel .eyebrow,
+.no-incoming-player p,
+.back-link {
+  color: var(--paper-muted) !important;
+}
+
+html:not([data-theme="light"]) .paper-panel .panel-kicker,
+html:not([data-theme="light"]) .paper-panel .eyebrow {
+  color: var(--surface-muted) !important;
+}
+
+/* Inputs are controlled as a complete pair, preventing OS/browser defaults
+   from making text disappear after a theme switch. */
+input,
+select,
+textarea {
+  background: var(--paper-light);
+  color: var(--ink);
+  caret-color: var(--ink);
+  color-scheme: light;
+}
+html:not([data-theme="light"]) input,
+html:not([data-theme="light"]) select,
+html:not([data-theme="light"]) textarea {
+  background: var(--surface-2);
+  color: var(--text);
+  caret-color: var(--text);
+  color-scheme: dark;
+}
+html:not([data-theme="light"]) select option {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Intentional light/dark programme halves keep their own readable foreground. */
+.drafts-half,
+.drafts-half p { color: #2a251d; }
+.glc-half,
+.glc-half p { color: #e5ddcf; }
+
+/* Subtle entrance rhythm: enough movement to make navigation feel alive, but
+   never enough to distract from the score desk. */
+@keyframes v12PanelIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes v12CardIn {
+  from { opacity: 0; transform: translateY(5px) rotate(.08deg); }
+  to { opacity: 1; transform: translateY(0) rotate(0); }
+}
+@keyframes v12LivePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+.page-section > .comic-panel,
+.page-section > .settings-card,
+.page-section > .about-hero,
+.page-section > .about-columns,
+.page-section > .future-note {
+  animation: v12PanelIn .34s cubic-bezier(.2,.75,.25,1) both;
+}
+
+.match-grid > .match-card,
+.viewer-stats-grid > .viewer-stat,
+.viewer-columns > .comic-panel,
+.scorer-lower > .comic-panel,
+.player-stats-grid > .player-stat-card {
+  animation: v12CardIn .3s cubic-bezier(.2,.75,.25,1) both;
+}
+
+.match-grid > :nth-child(2),
+.viewer-stats-grid > :nth-child(2),
+.viewer-columns > :nth-child(2),
+.scorer-lower > :nth-child(2) { animation-delay: .035s; }
+.match-grid > :nth-child(3),
+.viewer-stats-grid > :nth-child(3),
+.viewer-columns > :nth-child(3),
+.scorer-lower > :nth-child(3) { animation-delay: .07s; }
+.match-grid > :nth-child(4),
+.viewer-stats-grid > :nth-child(4),
+.viewer-columns > :nth-child(4),
+.scorer-lower > :nth-child(4) { animation-delay: .105s; }
+
+.live-chip i {
+  animation: v12LivePulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Keep interaction feedback crisp but restrained. */
+.comic-button,
+.small-control,
+.tool-button,
+.expand-button,
+.back-button,
+.run-key,
+.player-pick,
+.dismissed-option,
+.modal-close-button,
+.analysis-tabs button {
+  transition-duration: .16s;
+}
+
+html[data-reduce-motion="1"] .page-section > *,
+html[data-reduce-motion="1"] .match-grid > *,
+html[data-reduce-motion="1"] .viewer-stats-grid > *,
+html[data-reduce-motion="1"] .viewer-columns > *,
+html[data-reduce-motion="1"] .scorer-lower > *,
+html[data-reduce-motion="1"] .player-stats-grid > *,
+html[data-reduce-motion="1"] .live-chip i {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-section > *,
+  .match-grid > *,
+  .viewer-stats-grid > *,
+  .viewer-columns > *,
+  .scorer-lower > *,
+  .player-stats-grid > *,
+  .live-chip i {
+    animation: none !important;
+  }
+}

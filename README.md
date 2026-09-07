@@ -1,6 +1,6 @@
-# GLsiteITB11 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB12 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 11 internal test / publish candidate.
+Version 12 internal test / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -40,7 +40,7 @@ To deploy the Realtime Database rules as well:
 The current `database.rules.json` is intentionally open for this internal test build. Tighten the rules before any public production deployment.
 
 
-## v11 internal admin
+## v12 internal admin
 
 Settings contains a restricted Admin Mode at the bottom. The development fallback password is `DRAFTSADMIN11`; set `VITE_ADMIN_PASSWORD` before publishing to use your own password. The GitHub Pages workflow reads the GitHub Actions secret `VITE_ADMIN_PASSWORD`. This is a client-side gate, not secure authentication, because a static-site password is present in the browser bundle after build.
 

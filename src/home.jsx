@@ -5,7 +5,7 @@ export default function HomePage() {
     <main className="landing-page">
       <section className="landing-hero section-wrap">
         <div className="landing-copy">
-          <span className="landing-kicker">GLC27 / GALAXY OF CRICKET / 2027</span>
+          <span className="landing-kicker">The Host presents</span>
           <h1 className="landing-title"><span>GALA</span><span>LUXURIA CUP</span><strong>2027</strong></h1>
           <p className="landing-subtitle">A new season. A new field. A new story.</p>
         </div>
