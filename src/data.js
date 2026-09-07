@@ -12,7 +12,8 @@ export const SCORER_SESSION_KEY = "glt_drafts_scorer_unlocked_v7";
 export const SCORER_PASSWORD = import.meta.env?.VITE_SCORER_PASSWORD || "DRAFTS27";
 
 export const THEME_KEY = "glt_drafts_theme";
-export const SETTINGS_KEY = "glt_drafts_settings_v2";
+export const SETTINGS_KEY = "glt_drafts_settings_v4";
+export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
 
 export const DEFAULT_SETTINGS = {
   reduceMotion: false,
@@ -24,54 +25,173 @@ export const DEFAULT_SETTINGS = {
 
 export function loadSettings() {
   if (typeof window === "undefined") return { ...DEFAULT_SETTINGS };
-  const mobileReducedMotion = window.matchMedia?.("(max-width: 700px), (hover: none), (pointer: coarse)").matches ?? false;
-  const defaults = { ...DEFAULT_SETTINGS, reduceMotion: mobileReducedMotion };
+
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return { ...defaults, ...(parsed || {}) };
-  } catch {
-    return { ...defaults };
-  }
+    const currentRaw = localStorage.getItem(SETTINGS_KEY);
+
+    if (currentRaw) {
+      const parsed = JSON.parse(currentRaw);
+      return { ...DEFAULT_SETTINGS, ...(parsed || {}) };
+    }
+
+    // v2 incorrectly defaulted Reduce Motion on for mobile/coarse pointers.
+    // Migrate the other settings, but reset that buggy automatic default.
+    for (const key of LEGACY_SETTINGS_KEYS) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw) || {};
+      const migrated = {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        reduceMotion: false
+      };
+
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(migrated)
+      );
+
+      return migrated;
+    }
+  } catch {}
+
+  return { ...DEFAULT_SETTINGS };
 }
 
 export function saveSettings(settings) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  window.dispatchEvent(new CustomEvent("glt-settings-updated", { detail: settings }));
+
+  localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify(settings)
+  );
+
+  window.dispatchEvent(
+    new CustomEvent("glt-settings-updated", {
+      detail: settings
+    })
+  );
 }
 
 export function applySettingsToDocument(settings) {
   if (typeof document === "undefined") return;
+
   const root = document.documentElement;
-  root.dataset.reduceMotion = settings.reduceMotion ? "1" : "0";
-  root.dataset.compact = settings.compactMode ? "1" : "0";
-  root.dataset.largeText = settings.largeText ? "1" : "0";
+
+  root.dataset.reduceMotion =
+    settings.reduceMotion ? "1" : "0";
+
+  root.dataset.compact =
+    settings.compactMode ? "1" : "0";
+
+  root.dataset.largeText =
+    settings.largeText ? "1" : "0";
 }
 
 export const TEAMS = {
-  AIY: { code: "AIY", name: "AIY", accent: "#ff6b5f", paper: "#ffd9c8", players: ["Arsh", "Ishaansh", "Yug"] },
-  NTV: { code: "NTV", name: "NTV", accent: "#5fa8ff", paper: "#d8ecff", players: ["Nishil", "Tanmay", "Vivaan"] },
-  ANA: { code: "ANA", name: "ANA", accent: "#f0a56b", paper: "#ffe2bd", players: ["Arnav", "Naisha", "Agastya/Arsh"] },
-  YAM: { code: "YAM", name: "YAM", accent: "#bb8cff", paper: "#e8d9ff", players: ["Yash", "Ayaansh", "Manan"] }
+  AIY: {
+    code: "AIY",
+    name: "AIY",
+    accent: "#ff6b5f",
+    paper: "#ffd9c8",
+    players: [
+      "Arsh",
+      "Ishaansh",
+      "Yug"
+    ]
+  },
+
+  NTV: {
+    code: "NTV",
+    name: "NTV",
+    accent: "#5fa8ff",
+    paper: "#d8ecff",
+    players: [
+      "Nishil",
+      "Tanmay",
+      "Vivaan"
+    ]
+  },
+
+  ANA: {
+    code: "ANA",
+    name: "ANA",
+    accent: "#f0a56b",
+    paper: "#ffe2bd",
+    players: [
+      "Arnav",
+      "Naisha",
+      "Agastya/Arsh"
+    ]
+  },
+
+  YAM: {
+    code: "YAM",
+    name: "YAM",
+    accent: "#bb8cff",
+    paper: "#e8d9ff",
+    players: [
+      "Yash",
+      "Ayaansh",
+      "Manan"
+    ]
+  }
 };
 
 export const MATCHES = {
-  D1: { id: "D1", label: "DEMO 01", date: "14 MAY 2026", time: "19:00", t1: "AIY", t2: "NTV" },
-  D2: { id: "D2", label: "DEMO 02", date: "15 MAY 2026", time: "16:30", t1: "ANA", t2: "YAM" }
+  D1: {
+    id: "D1",
+    label: "DEMO 01",
+    date: "14 MAY 2026",
+    time: "19:00",
+    t1: "AIY",
+    t2: "NTV"
+  },
+
+  D2: {
+    id: "D2",
+    label: "DEMO 02",
+    date: "15 MAY 2026",
+    time: "16:30",
+    t1: "ANA",
+    t2: "YAM"
+  }
 };
 
-export const matchPath = (id) => `./match.html?match=${encodeURIComponent(id)}`;
-export const scorerPath = (id) => `./scorer.html?match=${encodeURIComponent(id)}`;
+export const matchPath = (id) =>
+  `./match.html?match=${encodeURIComponent(id)}`;
+
+export const scorerPath = (id) =>
+  `./scorer.html?match=${encodeURIComponent(id)}`;
 
 export function emptyLive() {
-  return { striker: "", nonStriker: "", bowler: "", previousBowler: "", freeHit: false };
+  return {
+    striker: "",
+    nonStriker: "",
+    bowler: "",
+    previousBowler: "",
+    freeHit: false
+  };
 }
 
 export function emptyMatch() {
-  return { status: "upcoming", innings: [], live: emptyLive(), result: null, toss: null };
+  return {
+    status: "upcoming",
+    innings: [],
+    live: emptyLive(),
+    result: null,
+    toss: null
+  };
 }
 
 export function freshStore() {
-  return { matches: Object.fromEntries(Object.keys(MATCHES).map((id) => [id, emptyMatch()])) };
+  return {
+    matches: Object.fromEntries(
+      Object.keys(MATCHES).map((id) => [
+        id,
+        emptyMatch()
+      ])
+    )
+  };
 }

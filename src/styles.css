@@ -176,13 +176,12 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 /* .dark-panel is a theme-adaptive "ink" card: it always follows --surface/--text as a pair,
    so contrast holds in both light and dark mode instead of forcing a fixed white-on-dark look. */
 .dark-panel { background:var(--surface); color:var(--text); }
-/* Commentary popup follows the active site theme; password pages may remain ink-dark. */
-.commentary-modal.dark-panel { background:var(--surface); color:var(--text); }
-.commentary-modal.dark-panel p, .commentary-modal.dark-panel label { color:var(--text); }
-html[data-theme="light"] .commentary-modal.dark-panel .comic-title { color:var(--ink); }
-html:not([data-theme="light"]) .commentary-modal.dark-panel .comic-title { color:var(--text); }
-.commentary-modal.dark-panel .comic-title::before { background:var(--yellow); }
-.commentary-modal.dark-panel .panel-kicker, .commentary-modal.dark-panel .eyebrow { color:var(--text-muted); }
+/* Modals/pages that are always a dramatic dark "ink" surface, regardless of site theme. */
+.commentary-modal.dark-panel, .password-page .dark-panel { background:var(--ink-panel-bg); color:var(--ink-panel-text); }
+.commentary-modal.dark-panel p, .commentary-modal.dark-panel label { color:var(--ink-panel-text); }
+.commentary-modal.dark-panel .comic-title { color:#fff8ec; }
+.commentary-modal.dark-panel .comic-title::before { background:var(--blue); }
+.commentary-modal.dark-panel .panel-kicker, .commentary-modal.dark-panel .eyebrow { color:var(--ink-panel-muted); }
 .paper-panel p, .paper-panel label, .paper-panel h3, .paper-panel h4 { color:var(--ink); }
 .dark-panel p, .dark-panel label, .dark-panel h3, .dark-panel h4 { color:var(--text); }
 .panel-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
@@ -322,7 +321,7 @@ html:not([data-theme="light"]) .commentary-modal.dark-panel .comic-title { color
 .commentary-row > div { min-width:0; display:grid; gap:2px; }
 .commentary-row > div span { color:var(--ink-soft); font-size:11px; overflow-wrap:anywhere; }
 .dark-panel .commentary-row > div span { color:var(--text-muted); }
-.commentary-modal.dark-panel .commentary-row > div span { color:var(--text-muted); }
+.commentary-modal.dark-panel .commentary-row > div span { color:var(--ink-panel-muted); }
 .commentary-row > small { color:var(--text-muted); font-family:"Barlow Condensed"; font-size:9px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
 .ball-mark { display:inline-grid; place-items:center; min-width:40px; min-height:34px; padding:5px 6px; border:2px solid var(--line); color:var(--ink); background:var(--paper-light); box-shadow:3px 3px 0 var(--line); font-family:"Bangers"; font-size:20px; }
 .commentary-row.is-wicket .ball-mark { background:var(--red); color:var(--ink); }
@@ -1397,4 +1396,224 @@ html:not([data-theme="light"]) .comic-title {
   .internal-match-divider { grid-template-columns: 1fr auto; }
   .internal-match-divider i { display: none; }
   .internal-match-divider small { grid-column: 1 / -1; }
+}
+
+/* ============================================================
+   v12 bug fixes: explicit motion state, tap-only impact FX,
+   stable reduced-motion centring, and theme-safe text contrast
+   ============================================================ */
+:root {
+  --text-offset-shadow: #fffdf5;
+}
+html[data-theme="light"] {
+  --text-offset-shadow: #17140f;
+}
+
+/* Keep normal text colour, but give it a small offset shadow in the
+   opposite direction of the page background. Explicit text-shadow rules
+   elsewhere (titles, comic art, controls) remain authoritative. */
+body {
+  text-shadow: 1px 1px 0 var(--text-offset-shadow);
+}
+
+/* Controls and marker-style labels already have a deliberate ink outline;
+   use that rather than inheriting the page-level shadow. */
+.comic-button,
+.small-control,
+.tool-button,
+.expand-button,
+.back-button,
+.undo-button,
+.central-scorecard-button,
+.run-key,
+.player-pick,
+.dismissed-option,
+.modal-close-button,
+.analysis-tabs button,
+.nav-link,
+.team-badge,
+.role-tag,
+.status,
+.score-state,
+.live-chip,
+.economy-stamp,
+.landing-kicker,
+.landing-sticker,
+.programme-action,
+.versus {
+  text-shadow: 1px 1px 0 var(--line);
+}
+
+/* Headings on yellow markers should stay clean and readable. */
+.comic-title,
+.comic-title * {
+  text-shadow: 1px 1px 0 var(--text-offset-shadow);
+}
+html:not([data-theme="light"]) .comic-title,
+html:not([data-theme="light"]) .comic-title * {
+  text-shadow: 1px 1px 0 var(--text-offset-shadow);
+}
+
+/* The centred landing CTA keeps its anchor transform even when reduced motion
+   disables all transitions/hover motion. Without this, :hover can remove the
+   translateX(-50%) centring and make the button visibly jump sideways. */
+html[data-reduce-motion="1"] .landing-enter,
+html[data-reduce-motion="1"] .landing-enter:hover,
+html[data-reduce-motion="1"] .landing-enter:focus-visible {
+  transform: translateX(-50%) !important;
+}
+html[data-reduce-motion="1"] .landing-enter:active {
+  transform: translateX(-50%) !important;
+}
+
+/* Likewise, the floating scorecard control must retain its centre anchor. */
+html[data-reduce-motion="1"] .central-scorecard-button,
+html[data-reduce-motion="1"] .central-scorecard-button:hover,
+html[data-reduce-motion="1"] .central-scorecard-button:active {
+  transform: translateX(-50%) !important;
+}
+
+/* When Reduce Motion is enabled, there is no press animation either. */
+html[data-reduce-motion="1"] .comic-button:active,
+html[data-reduce-motion="1"] .small-control:active,
+html[data-reduce-motion="1"] .tool-button:active,
+html[data-reduce-motion="1"] .expand-button:active,
+html[data-reduce-motion="1"] .back-button:active,
+html[data-reduce-motion="1"] .undo-button:active,
+html[data-reduce-motion="1"] .run-key:active,
+html[data-reduce-motion="1"] .player-pick:active:not(:disabled),
+html[data-reduce-motion="1"] .dismissed-option:active,
+html[data-reduce-motion="1"] .modal-close-button:active,
+html[data-reduce-motion="1"] .analysis-tabs button:active {
+  transform: none !important;
+  filter: none !important;
+}
+
+/* The public viewer and internal match records can arrive asynchronously.
+   Avoid accidental hidden overflow if a custom team name/player is long. */
+.viewer-page,
+.viewer-page * {
+  min-width: 0;
+}
+
+/* Theme variables also apply to the remaining fixed-colour secondary text. */
+html[data-theme="light"] .match-card-top,
+html[data-theme="light"] .match-card-bottom,
+html[data-theme="light"] .viewer-stat small,
+html[data-theme="light"] .viewer-player > span:last-child,
+html[data-theme="light"] .scorecard-title span,
+html[data-theme="light"] .table-row small,
+html[data-theme="light"] .player-stat-card .stat-cluster small,
+html[data-theme="light"] .player-stat-card .stat-cluster span,
+html[data-theme="light"] .player-stat-card .scorer-extra,
+html[data-theme="light"] .headline-metrics small,
+html[data-theme="light"] .future-rr-grid article > small,
+html[data-theme="light"] .text-reset,
+html[data-theme="light"] .back-link,
+html[data-theme="light"] .dismissed-lock > span,
+html[data-theme="light"] .dismissed-fixed span,
+html[data-theme="light"] .dismissed-option small {
+  color: var(--ink-soft) !important;
+}
+
+html:not([data-theme="light"]) .match-card-top,
+html:not([data-theme="light"]) .match-card-bottom,
+html:not([data-theme="light"]) .viewer-stat small,
+html:not([data-theme="light"]) .viewer-player > span:last-child,
+html:not([data-theme="light"]) .scorecard-title span,
+html:not([data-theme="light"]) .table-row small,
+html:not([data-theme="light"]) .player-stat-card .stat-cluster small,
+html:not([data-theme="light"]) .player-stat-card .stat-cluster span,
+html:not([data-theme="light"]) .player-stat-card .scorer-extra,
+html:not([data-theme="light"]) .headline-metrics small,
+html:not([data-theme="light"]) .future-rr-grid article > small,
+html:not([data-theme="light"]) .text-reset,
+html:not([data-theme="light"]) .back-link,
+html:not([data-theme="light"]) .dismissed-lock > span,
+html:not([data-theme="light"]) .dismissed-fixed span,
+html:not([data-theme="light"]) .dismissed-option small {
+  color: var(--text-muted) !important;
+}
+
+/* Comment archive now follows the active theme instead of retaining a
+   hard-coded dark-only kicker colour. */
+.commentary-modal.dark-panel .panel-kicker,
+.commentary-modal.dark-panel .eyebrow {
+  color: var(--text-muted) !important;
+}
+
+@media (hover: none), (pointer: coarse) {
+  /* Never use hover-state transforms on touch. Press feedback is supplied by
+     the real tap gesture handler instead. */
+  .landing-enter:hover,
+  .central-scorecard-button:hover,
+  .comic-button:hover,
+  .small-control:hover,
+  .tool-button:hover,
+  .expand-button:hover,
+  .back-button:hover,
+  .undo-button:hover,
+  .run-key:hover,
+  .player-pick:hover:not(:disabled),
+  .dismissed-option:hover,
+  .nav-link:hover,
+  .match-card:hover,
+  .viewer-player:hover,
+  .viewer-stat:hover {
+    transform: none;
+  }
+}
+
+
+/* v12.1 final polish: theme-aware text contrast and interaction safety. */
+:root { --text-offset-shadow: #fffdf5; }
+html[data-theme="light"] { --text-offset-shadow: #17140f; }
+
+/* Every normal text node inherits a readable foreground and a one-pixel offset
+   shadow. Dark surfaces flip the shadow back to a light edge. */
+body { text-shadow: 1px 1px 0 var(--text-offset-shadow); }
+.dark-panel, .glc-half, .teaser-dark, .commentary-modal, .versus, .incoming-slot, .programme-action {
+  --text-offset-shadow: #fffdf5;
+}
+.paper-panel, .future-note, .drafts-half, .settings-card, .about-hero, .about-columns article, .future-rr-panel, .future-rr-grid article, .player-stat-card {
+  --text-offset-shadow: #17140f;
+}
+input, select, textarea, button, a, label, small, span, p, li, td, th, dt, dd, strong, b, i, em {
+  text-shadow: 1px 1px 0 var(--text-offset-shadow);
+}
+input, select, textarea { color: var(--ink); }
+.dark-panel input, .dark-panel select, .dark-panel textarea, .admin-mode input, .admin-mode select, .admin-mode textarea {
+  color: var(--text);
+  --text-offset-shadow: #17140f;
+}
+.dark-panel .panel-kicker, .dark-panel .eyebrow, .dark-panel small, .dark-panel span,
+.glc-half p, .commentary-modal .panel-kicker, .commentary-modal .eyebrow {
+  text-shadow: 1px 1px 0 #fffdf5;
+}
+
+/* The landing CTA and other centre-anchored controls never lose their -50%
+   anchor when reduced motion removes transitions. */
+html[data-reduce-motion="1"] .landing-enter,
+html[data-reduce-motion="1"] .landing-enter:hover,
+html[data-reduce-motion="1"] .landing-enter:active,
+html[data-reduce-motion="1"] .landing-enter:focus-visible,
+html[data-reduce-motion="1"] .central-scorecard-button,
+html[data-reduce-motion="1"] .central-scorecard-button:hover,
+html[data-reduce-motion="1"] .central-scorecard-button:active {
+  transform: translateX(-50%) !important;
+  filter: none !important;
+}
+
+/* Touch devices should not inherit desktop hover movement. Real tap feedback is
+   generated by usePressFX only after pointerup without significant movement. */
+@media (hover: none), (pointer: coarse) {
+  .comic-button:hover, .small-control:hover, .tool-button:hover, .expand-button:hover,
+  .back-button:hover, .undo-button:hover, .central-scorecard-button:hover,
+  .run-key:hover, .player-pick:hover:not(:disabled), .dismissed-option:hover,
+  .nav-link:hover, .match-card:hover, .viewer-player:hover, .viewer-stat:hover,
+  .landing-enter:hover {
+    transform: none !important;
+  }
+  .landing-enter { transform: translateX(-50%); }
+  .landing-enter:hover { transform: translateX(-50%) !important; }
 }

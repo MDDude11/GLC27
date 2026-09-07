@@ -10,11 +10,30 @@ const originFromEvent = (event) => {
   const r = event?.currentTarget?.getBoundingClientRect?.();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
 };
+const normalizeViewerMatch = (match, fallback = {}) => ({
+  ...fallback,
+  ...(match || {}),
+  innings: Array.isArray(match?.innings)
+    ? match.innings.map((inn) => ({
+        ...inn,
+        deliveries: Array.isArray(inn?.deliveries) ? inn.deliveries : []
+      }))
+    : [],
+  live: {
+    striker: "",
+    nonStriker: "",
+    bowler: "",
+    previousBowler: "",
+    freeHit: false,
+    ...(match?.live || {})
+  },
+  result: match?.result || null
+});
 
 export default function ViewerPage({ matchId }) {
   const [fixture, setFixture] = useState(() => MATCHES[matchId] || null);
   const [loading, setLoading] = useState(!MATCHES[matchId]);
-  const [state, setState] = useState(() => getMatch(matchId) || { status: "upcoming", innings: [], live: {}, result: null });
+  const [state, setState] = useState(() => normalizeViewerMatch(getMatch(matchId), { status: "upcoming" }));
   const [commentaryOpen, setCommentaryOpen] = useState(false);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [commentaryOrigin, setCommentaryOrigin] = useState(null);
@@ -36,7 +55,7 @@ export default function ViewerPage({ matchId }) {
         // instead of reading localStorage again, which could still be empty in
         // a public browser that has never opened the scorer/admin pages.
         setFixture(resolved);
-        setState(resolved || getMatch(matchId));
+        setState(normalizeViewerMatch(resolved || getMatch(matchId)));
         setLoading(false);
       })
       .catch((error) => {
@@ -60,7 +79,17 @@ export default function ViewerPage({ matchId }) {
         // viewer on another device may have no matching localStorage record.
         const onRemote = (remoteMatch) => {
           if (!active || !remoteMatch) return;
-          setState(remoteMatch);
+          const remoteFixture = {
+            ...remoteMatch,
+            id: remoteMatch.id || matchId,
+            label: remoteMatch.label || remoteMatch.id || matchId,
+            t1: remoteMatch.t1 || "A",
+            t2: remoteMatch.t2 || "B",
+            teams: remoteMatch.teams || {}
+          };
+          setFixture((current) => current || remoteFixture);
+          setState(normalizeViewerMatch(remoteMatch, remoteFixture));
+          setLoading(false);
         };
 
         const onError = (error) => {

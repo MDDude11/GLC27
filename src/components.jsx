@@ -141,14 +141,20 @@ function usePressFX() {
       layer.className = "pow-layer";
       document.body.appendChild(layer);
     }
+
     const settingsNow = () => loadSettings();
+    const pointerStarts = new Map();
+    const cancelledPointers = new Set();
+
     const spawn = (x, y, target) => {
       if (settingsNow().reduceMotion) return;
       const isPow = target.closest(POW_SELECTOR);
       const isSpark = !isPow && target.closest(SPARK_SELECTOR);
       if (!isPow && !isSpark) return;
+
       const el = document.createElement("div");
       const rot = `${(Math.random() * 22 - 11).toFixed(1)}deg`;
+
       if (isPow) {
         el.className = "pow-burst";
         el.textContent = POW_WORDS[Math.floor(Math.random() * POW_WORDS.length)];
@@ -159,29 +165,79 @@ function usePressFX() {
         el.innerHTML = sparkSvg();
         el.style.setProperty("--pow-rot", rot);
       }
+
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
       layer.appendChild(el);
       el.addEventListener("animationend", () => el.remove(), { once: true });
       window.setTimeout(() => el.remove(), 900);
     };
-    const onDown = (event) => {
+
+    const onPointerDown = (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (event.isPrimary === false) return;
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest("button:disabled")) return;
+
+      pointerStarts.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        target
+      });
+      cancelledPointers.delete(event.pointerId);
+
       const s = settingsNow();
-      if (s.clickVibration && navigator.vibrate && (event.pointerType === "touch" || !event.pointerType)) {
+      if (
+        s.clickVibration &&
+        navigator.vibrate &&
+        (event.pointerType === "touch" || !event.pointerType)
+      ) {
         const isInteractive = target.closest("button, a, select, .run-key, .player-pick, .dismissed-option");
         if (isInteractive) navigator.vibrate(12);
       }
-      spawn(event.clientX, event.clientY, target);
     };
-    document.addEventListener("pointerdown", onDown, { passive: true });
-    return () => document.removeEventListener("pointerdown", onDown);
+
+    const onPointerMove = (event) => {
+      const start = pointerStarts.get(event.pointerId);
+      if (!start || cancelledPointers.has(event.pointerId)) return;
+      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 16) {
+        cancelledPointers.add(event.pointerId);
+      }
+    };
+
+    const onPointerUp = (event) => {
+      const start = pointerStarts.get(event.pointerId);
+      pointerStarts.delete(event.pointerId);
+
+      if (event.isPrimary === false || !start || cancelledPointers.has(event.pointerId)) {
+        cancelledPointers.delete(event.pointerId);
+        return;
+      }
+
+      cancelledPointers.delete(event.pointerId);
+      // Only a tap gets a POW/spark. A finger that moved to scroll is ignored.
+      spawn(event.clientX, event.clientY, start.target);
+    };
+
+    const onPointerCancel = (event) => {
+      pointerStarts.delete(event.pointerId);
+      cancelledPointers.delete(event.pointerId);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, { passive: true });
+    document.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.addEventListener("pointerup", onPointerUp, { passive: true });
+    document.addEventListener("pointercancel", onPointerCancel, { passive: true });
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerCancel);
+    };
   }, []);
 }
-
 function useComicNavigation() {
   useEffect(() => {
     const supportsVT = typeof document.startViewTransition === "function";
@@ -306,8 +362,7 @@ export function TeamBadge({ code, large = false, teams = TEAMS }) {
 }
 
 export function ScoreMini({ state, fixture }) {
-  const innings = Array.isArray(state?.innings) ? state.innings : [];
-  const scores = innings.map((inn) => computeInnings(inn.deliveries || []));
+  const scores = state.innings.map((inn) => computeInnings(inn.deliveries));
   if (!scores.length) return <span className="score-empty">NO SCORE RECORDED</span>;
   return <>{scores.map((score, index) => <span key={`${fixture.id}-score-${index}`}>{fixture[index === 0 ? "t1" : "t2"]} <b>{score.runs}/{score.wickets}</b> <small>({score.overs}.{score.balls})</small></span>)}</>;
 }
