@@ -17,7 +17,6 @@ import {
   getFirebaseInternalMatch,
   listFirebaseInternalMatches,
   seedFirebaseInternalMatch,
-  subscribeFirebaseInternalMatch,
   writeFirebaseInternalMatch,
   deleteFirebaseInternalMatch,
   writeFirebaseInternalPlayerStats
@@ -325,7 +324,7 @@ function syncInternalMatch(matchId, match) {
     });
   } catch {}
 
-  void writeFirebaseInternalMatch(
+  void writeFirebaseMatch(
     matchId,
     withStats
   ).catch((error) => {
@@ -602,7 +601,7 @@ export function resetMatch(id) {
 
     persistInternalStore(store);
 
-    void writeFirebaseInternalMatch(
+    void writeFirebaseMatch(
       id,
       reset
     ).catch((error) =>
@@ -763,224 +762,116 @@ export function useLiveMatchState(
   id,
   setState
 ) {
-  const internal =
-    isInternalMatchId(id);
+  const internal = isInternalMatchId(id);
+  const eventName = internal
+    ? "glt-internal-match-updated"
+    : "glt-match-updated";
 
   let active = true;
-
-  let unsubscribeFirebase =
-    () => {};
-
-  const eventName =
-    internal
-      ? "glt-internal-match-updated"
-      : "glt-match-updated";
+  let unsubscribeFirebase = () => {};
 
   const refresh = (event) => {
     if (
       !event ||
       event.detail === id ||
-      event.key ===
-        (
-          internal
-            ? INTERNAL_STORAGE_KEY
-            : STORAGE_KEY
-        )
+      event.key === (internal ? INTERNAL_STORAGE_KEY : STORAGE_KEY)
     ) {
-      setState(
-        getMatch(id)
-      );
+      setState(getMatch(id));
     }
   };
 
-  window.addEventListener(
-    "storage",
-    refresh
-  );
-
-  window.addEventListener(
-    eventName,
-    refresh
-  );
-
-  window.addEventListener(
-    "focus",
-    refresh
-  );
-
-  document.addEventListener(
-    "visibilitychange",
-    refresh
-  );
+  window.addEventListener("storage", refresh);
+  window.addEventListener(eventName, refresh);
+  window.addEventListener("focus", refresh);
+  document.addEventListener("visibilitychange", refresh);
 
   void (async () => {
-    if (internal) {
-      let existing = null;
+    let existing = null;
 
-      try {
-        existing =
-          await getFirebaseInternalMatch(
-            id
-          );
-      } catch (error) {
-        console.warn(
-          `Firebase internal seed failed for ${id}.`,
-          error
-        );
-      }
-
-      if (!active) return;
-
-      if (existing) {
-        const normalized =
-          normalizeInternalRemoteMatch(
-            id,
-            existing
-          );
-
-        const store =
-          loadInternalStore();
-
-        store.matches[id] =
-          normalized;
-
-        persistInternalStore(store);
-
-        setState(
-          clone(normalized)
-        );
-      }
-
-      const unsubscribe =
-        await subscribeFirebaseInternalMatch(
-          id,
-          (remoteMatch) => {
-            if (
-              !active ||
-              !remoteMatch
-            ) {
-              return;
-            }
-
-            const normalized =
-              normalizeInternalRemoteMatch(
-                id,
-                remoteMatch
-              );
-
-            const store =
-              loadInternalStore();
-
-            store.matches[id] =
-              normalized;
-
-            persistInternalStore(store);
-
-            setState(
-              clone(normalized)
-            );
-
-            window.dispatchEvent(
-              new CustomEvent(
-                eventName,
-                {
-                  detail: id,
-                  remote: true
-                }
-              )
-            );
-          }
-        );
-
-      if (
-        active &&
-        typeof unsubscribe ===
-          "function"
-      ) {
-        unsubscribeFirebase =
-          unsubscribe;
+    try {
+      if (internal) {
+        // Existing v14.x ITB matches are migrated from the legacy location once;
+        // all live reads after that use the normal matches/{id} path.
+        existing = await getFirebaseInternalMatch(id);
       } else {
-        unsubscribe?.();
+        existing = await seedFirebaseMatch(id, getMatch(id));
       }
-
-      return;
+    } catch (error) {
+      console.warn(`Firebase initial read failed for ${id}.`, error);
     }
-
-    const existing =
-      await seedFirebaseMatch(
-        id,
-        getMatch(id)
-      );
 
     if (!active) return;
 
     if (existing) {
-      const store =
-        loadStore();
+      const normalized = internal
+        ? normalizeInternalRemoteMatch(id, existing)
+        : normalizeStore({ matches: { [id]: existing } }).matches[id];
 
-      store.matches[id] =
-        normalizeStore({
-          matches: {
-            [id]: existing
-          }
-        }).matches[id];
+      if (internal) {
+        const store = loadInternalStore();
+        store.matches[id] = normalized;
+        persistInternalStore(store);
+      } else {
+        const store = loadStore();
+        store.matches[id] = normalized;
+        persistLocalStore(store);
+      }
 
-      persistLocalStore(store);
-
-      setState(
-        store.matches[id]
-      );
+      setState(clone(normalized));
     }
 
-    const unsubscribe =
-      await subscribeFirebaseMatch(
-        id,
-        (remoteMatch) => {
-          if (
-            !active ||
-            !remoteMatch
-          ) {
-            return;
+    // IMPORTANT: every match ID, including ITB IDs, subscribes to the exact
+    // same Firebase matches/{id} listener used by the demo matches.
+    const unsubscribe = await subscribeFirebaseMatch(
+      id,
+      (remoteMatch) => {
+        if (!active) return;
+
+        if (!remoteMatch) {
+          if (internal) {
+            const store = loadInternalStore();
+            if (store.matches[id]) {
+              delete store.matches[id];
+              persistInternalStore(store);
+            }
+          } else {
+            const store = loadStore();
+            delete store.matches[id];
+            persistLocalStore(store);
           }
-
-          const normalized =
-            normalizeStore({
-              matches: {
-                [id]: remoteMatch
-              }
-            }).matches[id];
-
-          const store =
-            loadStore();
-
-          store.matches[id] =
-            normalized;
-
-          persistLocalStore(store);
-
-          setState(
-            clone(normalized)
-          );
-
-          window.dispatchEvent(
-            new CustomEvent(
-              "glt-match-updated",
-              {
-                detail: id,
-                remote: true
-              }
-            )
-          );
+          return;
         }
-      );
 
-    if (
-      active &&
-      typeof unsubscribe ===
-        "function"
-    ) {
-      unsubscribeFirebase =
-        unsubscribe;
+        const normalized = internal
+          ? normalizeInternalRemoteMatch(id, remoteMatch)
+          : normalizeStore({ matches: { [id]: remoteMatch } }).matches[id];
+
+        if (internal) {
+          const store = loadInternalStore();
+          store.matches[id] = normalized;
+          persistInternalStore(store);
+        } else {
+          const store = loadStore();
+          store.matches[id] = normalized;
+          persistLocalStore(store);
+        }
+
+        setState(clone(normalized));
+
+        window.dispatchEvent(
+          new CustomEvent(eventName, {
+            detail: id,
+            remote: true
+          })
+        );
+      },
+      (error) => {
+        console.warn(`Live Firebase subscription failed for ${id}.`, error);
+      }
+    );
+
+    if (active && typeof unsubscribe === "function") {
+      unsubscribeFirebase = unsubscribe;
     } else {
       unsubscribe?.();
     }
@@ -988,27 +879,10 @@ export function useLiveMatchState(
 
   return () => {
     active = false;
-
     unsubscribeFirebase?.();
-
-    window.removeEventListener(
-      "storage",
-      refresh
-    );
-
-    window.removeEventListener(
-      eventName,
-      refresh
-    );
-
-    window.removeEventListener(
-      "focus",
-      refresh
-    );
-
-    document.removeEventListener(
-      "visibilitychange",
-      refresh
-    );
+    window.removeEventListener("storage", refresh);
+    window.removeEventListener(eventName, refresh);
+    window.removeEventListener("focus", refresh);
+    document.removeEventListener("visibilitychange", refresh);
   };
 }

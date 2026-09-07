@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MATCHES, matchPath, scorerPath } from "./data.js";
 import { fixtureFromInternalMatch } from "./admin.js";
 import { getMatch, listInternalMatches, resetMatch, useLiveMatchState } from "./store.js";
-import { subscribeFirebaseInternalMatches } from "./firebase.js";
+import { subscribeFirebaseMatches } from "./firebase.js";
 import { SiteFrame, ComicTitle, TeamBadge, ScoreMini } from "./components.jsx";
 
 const INTERNAL_CARD_PALETTE = [
@@ -90,9 +90,10 @@ export default function MatchesPage() {
       if (active) setInternalLoading(false);
     });
 
-    void subscribeFirebaseInternalMatches((all) => {
+    void subscribeFirebaseMatches((all) => {
+      const filtered = Object.fromEntries(Object.entries(all || {}).filter(([id]) => String(id).startsWith("ITB")));
       if (!active) return;
-      setInternalMatches(all || {});
+      setInternalMatches(filtered);
       setInternalLoading(false);
     }, () => {
       if (active) setInternalLoading(false);

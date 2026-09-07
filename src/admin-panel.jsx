@@ -69,7 +69,7 @@ export default function AdminPanel() {
       const match = createEmptyInternalMatch({ id, label: form.label.trim() || id, date: form.date, time: form.time, venue: form.venue.trim(), teamA, teamB });
       await createInternalMatch(match);
       await loadMatches();
-      setStatus(`Created ${match.label}. Saved to Firebase internalMatches/${id}.`);
+      setStatus(`Created ${match.label}. Saved to Firebase matches/${id}.`);
     } catch (error) {
       console.error(error);
       setStatus("Match creation failed. Check Firebase connectivity and try again.");
@@ -100,7 +100,7 @@ export default function AdminPanel() {
   if (!unlocked) return <section className="admin-gate comic-panel paper-panel">
     <span className="panel-kicker">RESTRICTED / INTERNAL TEST BUILD</span>
     <ComicTitle as="h2">Admin <i>mode.</i></ComicTitle>
-    <p>Separate internal match control. GLC27 tournament storage is not used here.</p>
+    <p>Separate internal test-match control. ITB match IDs are stored in the shared matches feed.</p>
     <form className="admin-password-form" onSubmit={unlock}>
       <label>Admin password<input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="Enter secret password" autoComplete="off" /></label>
       {error && <div className="form-error">{error}</div>}
@@ -109,7 +109,7 @@ export default function AdminPanel() {
   </section>;
 
   return <section className="admin-mode comic-panel dark-panel">
-    <div className="panel-heading"><div><span className="panel-kicker">INTERNAL ADMIN / FIREBASE SEPARATE STORE</span><ComicTitle as="h2">Build a <i>match.</i></ComicTitle></div><button type="button" className="modal-close-button close-button offline-safe" onClick={exit}>Exit admin ×</button></div>
+    <div className="panel-heading"><div><span className="panel-kicker">INTERNAL ADMIN / MATCHES STORE</span><ComicTitle as="h2">Build a <i>match.</i></ComicTitle></div><button type="button" className="modal-close-button close-button offline-safe" onClick={exit}>Exit admin ×</button></div>
     <div className="admin-inner">
       <form className="admin-match-form" onSubmit={create}>
         <div className="admin-form-grid">

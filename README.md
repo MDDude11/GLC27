@@ -1,4 +1,4 @@
-# GLsiteITB14.5 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB15 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
 Version 13 internal test build / publish candidate.
 
@@ -44,14 +44,14 @@ The current `database.rules.json` is intentionally open for this internal test b
 
 Settings contains a restricted Admin Mode at the bottom. The development fallback password is `DRAFTSADMIN11`; set `VITE_ADMIN_PASSWORD` before publishing to use your own password. The GitHub Pages workflow reads the GitHub Actions secret `VITE_ADMIN_PASSWORD`. This is a client-side gate, not secure authentication, because a static-site password is present in the browser bundle after build.
 
-Internal matches use Firebase Realtime Database under `/internalMatches/<matchId>` and are deliberately separate from the official GLC27 `/matches/<matchId>` namespace. Each internal match stores its custom 3v3 teams, delivery log, and a `playerStats` snapshot including batting runs/balls/fours/sixes/highest score/strike rate, bowling overs/runs/wickets/wides/no-balls/economy, and fielding catches/run-outs/stumpings.
+ITB custom matches use the same Firebase Realtime Database `/matches/<matchId>` records and realtime listener path as the official demo matches. Their IDs remain `ITB...`, so the UI can keep them separated and clearly labelled without maintaining a second live-match namespace.
 
 GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses `firebase.json` and the same static build.
 
 
 ## v14 changes
 
-- Internal test matches remain isolated under Firebase `internalMatches`.
+- Internal test matches remain logically separated by their `ITB...` IDs while using the shared `matches` Firebase collection.
 - Internal match creation is Firebase-first and verified before local caching, with REST fallback.
 - Internal match subscriptions use direct RTDB realtime updates with REST fallback.
 - Internal matches can be deleted from the admin panel.
@@ -59,3 +59,13 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Internal archive cards use stable pastel comic colours with spacing between repeated colour families.
 - Internal admin form typography and small-text contrast were cleaned up for both themes.
 - Landing presenter label is `The Host presents`.
+
+
+## ITB15 changes
+
+- ITB custom matches now use the same Firebase Realtime Database path as demo matches: `matches/{ITB...}`.
+- New custom match writes, deletes, seeds, viewer subscriptions, and scorer updates all use the normal match Firebase path.
+- Existing `internalMatches/{ITB...}` records are migrated into `matches/{ITB...}` when encountered, so older test matches remain accessible.
+- The internal-match archive still filters ITB IDs for its UI and continues to maintain `internalPlayerStats` separately.
+- Fixed the internal-match VS badge contrast/offset styling.
+- Updated the About-page programme text and the landing-page timed text carousel.

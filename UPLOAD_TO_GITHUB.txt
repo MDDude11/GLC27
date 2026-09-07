@@ -1,4 +1,11 @@
-GLC27 / ITB14.5 — Internal Test Build
+GLC27 ITB15
 
-This package excludes the .git directory so it cannot overwrite your current repository history.
-Extract it, replace the project files in your existing local Git repository, keep that repository's .git folder, then run git add ., git commit, and git push.
+Copy the extracted project into the permanent Git repository (do not copy .git):
+robocopy "NEW_EXTRACTED_ITB15_FOLDER" "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED" /E /XD .git
+
+Then run:
+cd /d "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED"
+git status
+git add .
+git commit -m "Release ITB v15"
+git push origin main

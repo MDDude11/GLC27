@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { MATCHES, MAX_OVERS, scorerPath, TEAMS } from "./data.js";
-import { isInternalMatchId } from "./admin.js";
 import { computeInnings, activeBatters, currentBowler } from "./engine.js";
 import { getMatch, resolveMatchFixture } from "./store.js";
-import { subscribeFirebaseInternalMatch, subscribeFirebaseMatch } from "./firebase.js";
+import { subscribeFirebaseMatch } from "./firebase.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, DetailedStatsModal, Modal, morphOpen, WicketCount } from "./components.jsx";
 
 const originFromEvent = (event) => {
@@ -96,9 +95,9 @@ export default function ViewerPage({ matchId }) {
           console.warn(`Live viewer subscription failed for ${matchId}.`, error);
         };
 
-        const maybeUnsubscribe = isInternalMatchId(matchId)
-          ? await subscribeFirebaseInternalMatch(matchId, onRemote, onError)
-          : await subscribeFirebaseMatch(matchId, onRemote, onError);
+        // All match IDs, including ITB custom matches, use the same live
+        // Firebase matches/{id} subscription.
+        const maybeUnsubscribe = await subscribeFirebaseMatch(matchId, onRemote, onError);
 
         if (!active) {
           maybeUnsubscribe?.();
