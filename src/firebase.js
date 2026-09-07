@@ -223,14 +223,30 @@ export async function subscribeFirebaseInternalMatch(
   let sdkUnsubscribe = () => {};
   let pollTimer = null;
   let polling = false;
+  let lastPayload = "";
 
   const emitRemote = (value) => {
     if (!active || value == null) return;
+
+    let fingerprint = "";
+    try {
+      fingerprint = JSON.stringify(value);
+    } catch {
+      fingerprint = String(value);
+    }
+
+    // Firebase SDK and REST polling can observe the same write. De-dupe them so
+    // the UI only re-renders when the actual remote match payload changes.
+    if (fingerprint === lastPayload) return;
+    lastPayload = fingerprint;
     onMatch(value);
   };
 
   const readOnce = async () => {
     try {
+      // REST polling is intentionally always active for internal/public matches.
+      // This makes the public viewer independent of whether the Firebase SDK's
+      // browser realtime transport is working correctly on a given network.
       const remote = await readFirebaseInternalMatchRest(matchId);
       if (remote != null) emitRemote(remote);
       return true;
@@ -247,7 +263,7 @@ export async function subscribeFirebaseInternalMatch(
     const poll = async () => {
       if (!active) return;
       await readOnce();
-      if (active) pollTimer = window.setTimeout(poll, 1500);
+      if (active) pollTimer = window.setTimeout(poll, 1000);
     };
 
     void poll();
@@ -262,21 +278,23 @@ export async function subscribeFirebaseInternalMatch(
       },
       (error) => {
         console.warn(
-          `Firebase realtime subscription failed for ${matchId}; using REST fallback.`,
+          `Firebase realtime subscription failed for ${matchId}; REST polling remains active.`,
           error
         );
         onError?.(error);
-        startPolling();
       }
     );
   } catch (error) {
     console.warn(
-      `Firebase realtime subscription could not start for ${matchId}; using REST fallback.`,
+      `Firebase realtime subscription could not start for ${matchId}; using REST polling.`,
       error
     );
     onError?.(error);
-    startPolling();
   }
+
+  // Always start polling, even when the SDK says it is connected. This is the
+  // key reliability path for the public viewer and for separate browser tabs.
+  startPolling();
 
   return () => {
     active = false;
@@ -293,39 +311,42 @@ export function writeFirebaseInternalMatch(matchId, match) {
   const next = previous
     .catch(() => {})
     .then(async () => {
+      // Write through REST first and verify the server accepted the payload.
+      // This avoids relying on an SDK write that can remain only in the local
+      // Firebase client cache while appearing successful to the caller.
       try {
-        const { database, ref, set } =
-          await loadFirebase();
-
-        await set(
-          ref(
-            database,
-            `${INTERNAL_ROOT}/${matchId}`
-          ),
-          match
-        );
-      } catch (error) {
+        await writeFirebaseInternalMatchRest(matchId, match);
+        const verified = await readFirebaseInternalMatchRest(matchId);
+        if (!verified) {
+          throw new Error(`Firebase REST verification returned no record for ${matchId}.`);
+        }
+        return verified;
+      } catch (restError) {
         console.warn(
-          `Firebase SDK write failed for ${matchId}; trying REST write.`,
-          error
+          `Firebase REST write failed for ${matchId}; trying SDK write.`,
+          restError
         );
 
-        await writeFirebaseInternalMatchRest(
-          matchId,
+        const { database, ref, get, set } = await loadFirebase();
+        await set(
+          ref(database, `${INTERNAL_ROOT}/${matchId}`),
           match
         );
+
+        const verified = await get(
+          ref(database, `${INTERNAL_ROOT}/${matchId}`)
+        );
+        if (!verified.exists()) {
+          throw new Error(`Firebase SDK verification returned no record for ${matchId}.`);
+        }
+        return verified.val();
       }
     });
 
-  internalWriteQueues.set(
-    matchId,
-    next
-  );
+  internalWriteQueues.set(matchId, next);
 
   void next.finally(() => {
-    if (
-      internalWriteQueues.get(matchId) === next
-    ) {
+    if (internalWriteQueues.get(matchId) === next) {
       internalWriteQueues.delete(matchId);
     }
   });

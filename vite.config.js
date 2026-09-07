@@ -8,13 +8,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        home: resolve(__dirname, "index.html"),
-        programme: resolve(__dirname, "programme.html"),
-        matches: resolve(__dirname, "matches.html"),
-        match: resolve(__dirname, "match.html"),
-        scorer: resolve(__dirname, "scorer.html"),
-        settings: resolve(__dirname, "settings.html"),
-        about: resolve(__dirname, "about.html")
+        home: resolve(import.meta.dirname, "index.html"),
+        programme: resolve(import.meta.dirname, "programme.html"),
+        matches: resolve(import.meta.dirname, "matches.html"),
+        match: resolve(import.meta.dirname, "match.html"),
+        scorer: resolve(import.meta.dirname, "scorer.html"),
+        settings: resolve(import.meta.dirname, "settings.html"),
+        about: resolve(import.meta.dirname, "about.html")
       }
     }
   }
