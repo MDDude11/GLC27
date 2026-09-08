@@ -1,7 +1,7 @@
 {
   "name": "glt-drafts-2027-itb17-pwa-offline-safe",
   "private": true,
-  "version": "17.0.0",
+  "version": "17.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,5 +18,5 @@
   "devDependencies": {
     "typescript": "^5.9.2"
   },
-  "description": "GLsiteITB17 internal test build for The DRAFTS live match desk, with PWA and offline-safe scoring."
+  "description": "GLsiteITB17.5 internal test build for The DRAFTS live match desk, with PWA and offline-safe scoring."
 }

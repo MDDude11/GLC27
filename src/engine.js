@@ -9,7 +9,13 @@ export const isRecordedWicket = (d) => Boolean(d.wicket) && !d.retired && !d.dea
 const blankBatter = () => ({ runs: 0, balls: 0, fours: 0, sixes: 0, out: false, dismissal: "", retired: false });
 const blankBowler = () => ({ balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 });
 
+const inningsCache = new WeakMap();
+
 export function computeInnings(deliveries = []) {
+  if (Array.isArray(deliveries)) {
+    const cached = inningsCache.get(deliveries);
+    if (cached) return cached;
+  }
   let runs = 0;
   let wickets = 0;
   let legal = 0;
@@ -21,7 +27,8 @@ export function computeInnings(deliveries = []) {
   let currentOverRuns = 0;
   let lastCompletedOver = 0;
 
-  for (const d of deliveries) {
+  for (let index = 0; index < deliveries.length; index += 1) {
+    const d = deliveries[index];
     const r = Number(d.runs) || 0;
     const wide = Boolean(d.wide);
     const noBall = Boolean(d.noBall);
@@ -61,7 +68,7 @@ export function computeInnings(deliveries = []) {
       if (isBowlerWicket(d)) bowlers[d.bowler].wickets += 1;
     }
 
-    cumulative.push({ ball: deliveries.indexOf(d) + 1, runs });
+    cumulative.push({ ball: index + 1, runs });
     if (legalBall && legal % 6 === 0) {
       overRuns.push(currentOverRuns);
       currentOverRuns = 0;
@@ -70,7 +77,7 @@ export function computeInnings(deliveries = []) {
   }
   if (deliveries.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < MAX_OVERS) overRuns.push(currentOverRuns);
 
-  return {
+  const result = {
     runs,
     wickets,
     retirements,
@@ -85,6 +92,9 @@ export function computeInnings(deliveries = []) {
     cumulative,
     completedOvers: lastCompletedOver
   };
+
+  if (Array.isArray(deliveries)) inningsCache.set(deliveries, result);
+  return result;
 }
 
 export function inningsFinished(inn, target = null) {

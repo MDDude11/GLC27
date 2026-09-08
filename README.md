@@ -1,6 +1,6 @@
-# GLsiteITB17 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB17.5 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 17.0 internal test build / publish candidate.
+Version 17.5 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -91,3 +91,12 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Made modal closing consistent: every shared modal responds to Escape, and long release-note content keeps its close control in a sticky header while the body scrolls independently.
 - Refined the About page so `THE DRAFTS` is the section kicker and `The official player evaluation point` is the main heading, matching the hierarchy of `The Official Tournament`.
 - Added a deterministic project lint gate backed by the TypeScript parser and wired it ahead of the production build in GitHub Actions. This release does not claim third-party ESLint coverage because the environment cannot install new registry packages during offline validation.
+
+
+## v17.5 — Performance pass
+
+- Optimized innings calculations with delivery-array memoization and linear iteration.
+- Reduced halftone pointer rendering work by caching the static dot field and repainting only the magnetic region.
+- Reduced decorative rendering cost on small screens.
+- Deferred below-the-fold match detail sections with content visibility.
+- No scoring, Firebase, navigation, or match behaviour was intentionally changed by the performance pass.

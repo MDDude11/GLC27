@@ -113,6 +113,18 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .live-indicator { justify-self:end; color:var(--text-muted); font-family:"Barlow Condensed"; font-size:10px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
 .site-footer { position:relative; z-index:4; width:min(1180px,calc(100% - 34px)); margin:auto; padding:26px 0 38px; display:flex; justify-content:space-between; gap:18px; border-top:2px solid var(--line-soft); color:var(--text-muted); font-family:"Barlow Condensed"; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
 
+/* v17.5 performance: keep expensive decorative layers cheap on small screens. */
+@media (max-width:700px) {
+  .grain { display:none; }
+  .ambient { filter: blur(56px); opacity:.11; }
+}
+
+/* v17.5 performance: defer below-the-fold match analytics/detail painting. */
+.viewer-columns, .player-stats-section, .scorer-lower {
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
+}
+
 /* Titles */
 .comic-title { position:relative; display:inline-block; isolation:isolate; margin:14px 0 24px; color:var(--ink); font-family:"Barlow Condensed"; font-size:clamp(44px,6vw,86px); font-weight:900; letter-spacing:-.06em; line-height:.82; text-transform:uppercase; }
 .comic-title::before { content:""; position:absolute; z-index:-1; left:-.03em; right:-.06em; top:45%; height:48%; background:var(--accent); transform:rotate(-1deg) skewX(-3deg); box-shadow:5px 6px 0 var(--line); }

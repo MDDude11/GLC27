@@ -15,11 +15,78 @@ export function HalftoneField() {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     const ctx = canvas.getContext("2d", { alpha: true });
+    const baseCanvas = document.createElement("canvas");
+    const baseCtx = baseCanvas.getContext("2d", { alpha: true });
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
     let width = 0;
     let height = 0;
     let dpr = 1;
     let gap = 28;
+    let rgb = "245,238,223";
+    let baseReady = false;
+
+    const getRGB = () => getComputedStyle(document.documentElement).getPropertyValue("--halftone-rgb").trim() || "245,238,223";
+
+    const drawDot = (targetCtx, x, y, current = null) => {
+      let dotX = x;
+      let dotY = y;
+      let dotR = 1.15;
+      if (current?.active && fine.matches) {
+        const dx = current.x - x;
+        const dy = current.y - y;
+        const dist = Math.hypot(dx, dy);
+        const radius = gap * 4.2;
+        const influence = Math.max(0, 1 - dist / radius);
+        if (influence > 0) {
+          const eased = influence * influence * (3 - 2 * influence);
+          const pull = gap * .28 * eased;
+          dotX += dx * (pull / Math.max(dist, 1));
+          dotY += dy * (pull / Math.max(dist, 1));
+          dotR += 5.4 * eased;
+        }
+      }
+      targetCtx.beginPath();
+      targetCtx.fillStyle = `rgba(${rgb},.18)`;
+      targetCtx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+      targetCtx.fill();
+    };
+
+    const buildBase = () => {
+      rgb = getRGB();
+      baseCanvas.width = Math.round(width * dpr);
+      baseCanvas.height = Math.round(height * dpr);
+      baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      baseCtx.clearRect(0, 0, width, height);
+      if (document.documentElement.dataset.reduceMotion === "1") {
+        baseReady = false;
+        return;
+      }
+      for (let y = gap * .55; y < height + gap; y += gap) {
+        for (let x = gap * .55; x < width + gap; x += gap) {
+          drawDot(baseCtx, x, y);
+        }
+      }
+      baseReady = true;
+    };
+
+    const paint = () => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!baseReady) return;
+      ctx.drawImage(baseCanvas, 0, 0);
+      const current = pointerRef.current;
+      if (!current.active || !fine.matches) return;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const radius = gap * 4.2;
+      const minX = Math.max(gap * .55, Math.floor((current.x - radius) / gap) * gap + gap * .55);
+      const maxX = Math.min(width + gap, Math.ceil((current.x + radius) / gap) * gap + gap * .55);
+      const minY = Math.max(gap * .55, Math.floor((current.y - radius) / gap) * gap + gap * .55);
+      const maxY = Math.min(height + gap, Math.ceil((current.y + radius) / gap) * gap + gap * .55);
+      for (let y = minY; y <= maxY; y += gap) {
+        for (let x = minX; x <= maxX; x += gap) drawDot(ctx, x, y, current);
+      }
+    };
 
     const resize = () => {
       width = window.innerWidth;
@@ -30,43 +97,8 @@ export function HalftoneField() {
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildBase();
       paint();
-    };
-
-    const getRGB = () => getComputedStyle(document.documentElement).getPropertyValue("--halftone-rgb").trim() || "245,238,223";
-
-    const paint = () => {
-      ctx.clearRect(0, 0, width, height);
-      if (document.documentElement.dataset.reduceMotion === "1") return;
-      const rgb = getRGB();
-      const current = pointerRef.current;
-      const radius = gap * 4.2;
-      const base = 1.15;
-      for (let y = gap * .55; y < height + gap; y += gap) {
-        for (let x = gap * .55; x < width + gap; x += gap) {
-          let dotX = x;
-          let dotY = y;
-          let dotR = base;
-          if (current.active && fine.matches) {
-            const dx = current.x - x;
-            const dy = current.y - y;
-            const dist = Math.hypot(dx, dy);
-            const influence = Math.max(0, 1 - dist / radius);
-            if (influence > 0) {
-              const eased = influence * influence * (3 - 2 * influence);
-              const pull = gap * .28 * eased;
-              dotX += dx * (pull / Math.max(dist, 1));
-              dotY += dy * (pull / Math.max(dist, 1));
-              dotR += 5.4 * eased;
-            }
-          }
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(${rgb},.18)`;
-          ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
     };
 
     const stop = () => {
@@ -92,7 +124,7 @@ export function HalftoneField() {
     };
 
     const move = (event) => {
-      if (!fine.matches) return;
+      if (!fine.matches || document.documentElement.dataset.reduceMotion === "1") return;
       targetRef.current = { x: event.clientX, y: event.clientY };
       pointerRef.current.active = true;
       start();
@@ -102,7 +134,10 @@ export function HalftoneField() {
       paint();
       stop();
     };
-    const themeObserver = new MutationObserver(paint);
+    const themeObserver = new MutationObserver(() => {
+      buildBase();
+      paint();
+    });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent", "data-reduce-motion"] });
 
     resize();
