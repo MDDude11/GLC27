@@ -1,13 +1,11 @@
-GLC27 ITB17
+GLC27 ITB v17.6
 
-Copy the extracted project into the permanent Git repository (do not copy .git):
-robocopy "NEW_EXTRACTED_ITB17_FOLDER" "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED" /E /XD .git
+Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
+The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
 
 Then run:
-cd /d "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED"
-git status
-git add .
-git commit -m "Release ITB v17"
-git push origin main
+  git add .
+  git commit -m "Release ITB v17.6"
+  git push origin main
 
-GitHub Actions now runs the lint gate before the Vite build.
+GitHub Actions should build and deploy the Pages artifact.

@@ -336,7 +336,15 @@ function useConnectivityStatus() {
 export function SiteFrame({ children, active = "" }) {
   useEffect(() => {
     if (import.meta.env.PROD && "serviceWorker" in navigator) {
-      void navigator.serviceWorker.register(sitePath("/sw.js"), { scope: sitePath("/") }).catch((error) => {
+      void navigator.serviceWorker.register(sitePath("/sw.js"), {
+        scope: sitePath("/"),
+        updateViaCache: "none"
+      }).then((registration) => {
+        void registration.update();
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+      }).catch((error) => {
         console.warn("PWA service worker registration failed.", error);
       });
     }

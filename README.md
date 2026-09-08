@@ -1,6 +1,6 @@
-# GLsiteITB17.5 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB17.6 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 17.5 internal test build / publish candidate.
+Version 17.6 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -100,3 +100,28 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Reduced decorative rendering cost on small screens.
 - Deferred below-the-fold match detail sections with content visibility.
 - No scoring, Firebase, navigation, or match behaviour was intentionally changed by the performance pass.
+
+### v17.6 PWA + low-network hardening
+
+- versioned the service-worker cache for a clean update path
+- service-worker update checks bypass the browser HTTP cache
+- precaches all public match pages and discovers their built local assets during installation
+- uses a short network timeout before falling back to cached navigation, avoiding long blank waits on weak connections
+- keeps same-origin static assets available offline with cache-first behaviour and background refresh
+- caches Firebase browser modules and Google font requests after first successful load so repeat visits are lighter on weak networks
+- keeps Firebase authoritative when reachable, while preserving local match state and the queued-write path when the network is unavailable
+- flushes queued scorer writes automatically when connectivity returns
+- retains the v17.5 performance optimizations; no intentional scoring, navigation, or Firebase data-model changes
+
+
+## v17.6 — PWA + low-network hardening
+
+- Versioned the service-worker cache so new deployments invalidate old PWA shell assets.
+- Service-worker registration disables HTTP-cache reuse for update checks and requests an immediate update check.
+- Pre-caches the public HTML/PWA shell and discovers built local script/style assets during installation.
+- Keeps extensionless GitHub Pages routes available from the cached app shell when offline.
+- Uses a short navigation network timeout before falling back to the last cached page, avoiding long blank waits on weak connections.
+- Uses stale-while-revalidate caching for same-origin static assets.
+- Caches Firebase browser modules and Google font resources after a successful online load for better repeat performance in low-network areas.
+- Retains local match snapshots and the persistent queued Firebase write path so scorer work can continue during temporary network loss and sync when connectivity returns.
+- No intentional scoring rules, match schema, navigation, or Firebase authority changes.
