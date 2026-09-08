@@ -45,6 +45,33 @@ export default function SettingsPage() {
           <p>Choose the light or dark presentation for the website.</p>
           <button className={`comic-button ${dark ? "light-mode-button" : "dark-mode-button"} setting-toggle`} onClick={toggle}>{label} <span>↔</span></button>
           <small className="settings-footnote">Your preference is saved on this device.</small>
+
+          <div className="theme-color-picker">
+            <div className="theme-color-heading">
+              <span>Comic colour</span>
+              <b>{({ yellow: "Lemon", peach: "Peach", mint: "Mint", sky: "Sky", lavender: "Lavender", rose: "Rose" }[settings.themeColor]) || "Lemon"}</b>
+            </div>
+            <div className="theme-color-options" role="group" aria-label="Choose comic colour">
+              {[
+                ["yellow", "Lemon", "#efff3f"],
+                ["peach", "Peach", "#ffc6a5"],
+                ["mint", "Mint", "#b8e8c8"],
+                ["sky", "Sky", "#b8dcff"],
+                ["lavender", "Lavender", "#d7c2ff"],
+                ["rose", "Rose", "#ffbfd0"]
+              ].map(([key, name, color]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`theme-swatch ${settings.themeColor === key ? "selected" : ""}`}
+                  style={{ "--swatch": color }}
+                  aria-label={`Use ${name} theme colour`}
+                  aria-pressed={settings.themeColor === key}
+                  onClick={() => updateSetting("themeColor", key)}
+                ><span />{name}</button>
+              ))}
+            </div>
+          </div>
         </article>
 
         <article className="comic-panel paper-panel settings-card">

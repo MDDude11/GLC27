@@ -1,4 +1,4 @@
-# GLsiteITB16 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB16.1 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
 Version 16 internal test build / publish candidate.
 
@@ -61,7 +61,7 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Landing presenter label is `The Host presents`.
 
 
-## ITB16 changes
+## ITB16.1 changes
 
 - New custom matches are created with `custom-XXXXX-` IDs and are shown in the same match archive grid as D1/D2.
 - Creating a match no longer provides a direct Viewer/Scorer launch from Admin Mode; return through Home → Matches.
@@ -70,6 +70,6 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Custom matches now use the same `matches/{id}` live Firebase record path as demo matches.
 - New custom IDs use `custom-XXXXX-` followed by a randomized seven-character sequence containing exactly 3 letters and 4 numbers.
 - Internal legacy `ITB11-...` IDs remain supported.
-- Custom scorer setup now records toss winner, toss decision, batting/bowling sides, opening batters, opening bowler, and bowling type before the first delivery.
+- Custom scorer setup now records toss winner, toss decision, batting/bowling sides, opening batters and opening bowler before the first delivery. Drafts do not show the GLC27 pace/spin control yet.
 - Second innings has an explicit opening-player setup before scoring resumes.
 - Internal match archive filtering recognizes both legacy and new custom IDs.

@@ -102,7 +102,7 @@ export function HalftoneField() {
       stop();
     };
     const themeObserver = new MutationObserver(paint);
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-reduce-motion"] });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent", "data-reduce-motion"] });
 
     resize();
     window.addEventListener("resize", resize, { passive: true });

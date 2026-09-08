@@ -16,6 +16,7 @@ export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
 
 export const DEFAULT_SETTINGS = {
+  themeColor: "yellow",
   reduceMotion: false,
   soundEffects: true,
   clickVibration: true,
@@ -87,6 +88,8 @@ export function applySettingsToDocument(settings) {
 
   root.dataset.largeText =
     settings.largeText ? "1" : "0";
+
+  root.dataset.accent = settings.themeColor || "yellow";
 }
 
 export const TEAMS = {
