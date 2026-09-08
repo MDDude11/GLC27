@@ -1,11 +1,11 @@
-GLC27 ITB v17.6
+GLC27 ITB v17.7.1 — scoring hotfix
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
 
 Then run:
-  git add .
-  git commit -m "Release ITB v17.6"
+  git add -A
+  git commit -m "Release ITB v17.7.1 scoring hotfix"
   git push origin main
 
 GitHub Actions should build and deploy the Pages artifact.

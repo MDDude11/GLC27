@@ -11,9 +11,22 @@ const blankBowler = () => ({ balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0
 
 const inningsCache = new WeakMap();
 
+// Firebase Realtime Database can return list-shaped data as an object.
+// Normalize it before any scoring logic iterates over the delivery list.
+export function normalizeDeliveries(value = []) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value || typeof value !== "object") return [];
+
+  const entries = Object.entries(value).filter(([, delivery]) => delivery != null);
+  const numericKeys = entries.length > 0 && entries.every(([key]) => /^\d+$/.test(key));
+  if (numericKeys) entries.sort(([a], [b]) => Number(a) - Number(b));
+  return entries.map(([, delivery]) => delivery);
+}
+
 export function computeInnings(deliveries = []) {
-  if (Array.isArray(deliveries)) {
-    const cached = inningsCache.get(deliveries);
+  const list = normalizeDeliveries(deliveries);
+  if (Array.isArray(list)) {
+    const cached = inningsCache.get(list);
     if (cached) return cached;
   }
   let runs = 0;
@@ -27,8 +40,8 @@ export function computeInnings(deliveries = []) {
   let currentOverRuns = 0;
   let lastCompletedOver = 0;
 
-  for (let index = 0; index < deliveries.length; index += 1) {
-    const d = deliveries[index];
+  for (let index = 0; index < list.length; index += 1) {
+    const d = list[index];
     const r = Number(d.runs) || 0;
     const wide = Boolean(d.wide);
     const noBall = Boolean(d.noBall);
@@ -75,7 +88,7 @@ export function computeInnings(deliveries = []) {
       lastCompletedOver += 1;
     }
   }
-  if (deliveries.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < MAX_OVERS) overRuns.push(currentOverRuns);
+  if (list.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < MAX_OVERS) overRuns.push(currentOverRuns);
 
   const result = {
     runs,
@@ -93,7 +106,7 @@ export function computeInnings(deliveries = []) {
     completedOvers: lastCompletedOver
   };
 
-  if (Array.isArray(deliveries)) inningsCache.set(deliveries, result);
+  if (Array.isArray(list)) inningsCache.set(list, result);
   return result;
 }
 
@@ -133,7 +146,7 @@ export function activeBatters(state) {
 }
 
 export function fallOfWickets(deliveries = []) {
-  return deliveries
+  return normalizeDeliveries(deliveries)
     .filter((d) => isRecordedWicket(d))
     .map((d) => ({
       dismissed: d.dismissed || "Unknown",
@@ -182,7 +195,7 @@ export function playerStatsForMatch(state = {}) {
       result[name].bowling.wides += b.wides;
       result[name].bowling.noBalls += b.noBalls;
     }
-    for (const d of inn.deliveries || []) {
+    for (const d of normalizeDeliveries(inn.deliveries)) {
       const f = d.fielder;
       if (!f) continue;
       result[f] ||= { batting: { runs: 0, balls: 0, fours: 0, sixes: 0, highestScore: 0, dismissed: false, retired: false, dismissal: "", strikeRate: "0.00" }, bowling: { balls: 0, overs: "0.0", runs: 0, wickets: 0, wides: 0, noBalls: 0, economy: "0.00" }, fielding: { catches: 0, runOuts: 0, stumpings: 0 } };

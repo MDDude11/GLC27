@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath, sitePath } from "./data.js";
-import { clone, computeInnings, describeResult } from "./engine.js";
+import { clone, computeInnings, describeResult, normalizeDeliveries } from "./engine.js";
 import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, Modal, morphOpen, WicketCount } from "./components.jsx";
 
@@ -77,7 +77,9 @@ function ScorerDesk({ matchId, fixture }) {
   useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
   useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 1500); return () => window.clearTimeout(t); }, [toast]);
 
-  const innings = Array.isArray(state?.innings) ? state.innings : [];
+  const innings = Array.isArray(state?.innings)
+    ? state.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
+    : [];
   const currentInn = innings.at(-1);
   const score = currentInn ? computeInnings(currentInn.deliveries || []) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
   const firstScore = innings[0] ? computeInnings(innings[0].deliveries || []) : null;
@@ -183,7 +185,7 @@ function ScorerDesk({ matchId, fixture }) {
     let incomingCandidates = [];
     const result = patchMatch(matchId, (current) => {
       const inn = current.innings.at(-1);
-      const deliveries = [...inn.deliveries, delivery];
+      const deliveries = [...normalizeDeliveries(inn?.deliveries), delivery];
       const nextScore = computeInnings(deliveries);
       const players = teams[inn.battingTeam].players;
       const dismissed = unique(deliveries.filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));

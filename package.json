@@ -1,7 +1,7 @@
 {
-  "name": "glt-drafts-2027-itb17-6-pwa-low-network-safe",
+  "name": "glt-drafts-2027-itb17-7-1-scoring-hotfix",
   "private": true,
-  "version": "17.6.0",
+  "version": "17.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

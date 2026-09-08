@@ -1,6 +1,12 @@
-# GLsiteITB17.6 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB17.7.1 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 17.6 internal test build / publish candidate.
+Version 17.7.1 internal test build / publish candidate.
+
+## v17.7.1 scoring hotfix
+- Fixed a live-scoring crash when Firebase returns `deliveries` as an object instead of a JavaScript array.
+- Centralized delivery normalization so numeric-keyed Firebase lists are restored in ball order instead of being discarded.
+- Scorer, local persistence, Firebase hydration, commentary, wicket display and statistics now tolerate array-shaped and object-shaped delivery data.
+- Bumped the service-worker cache version so deployed clients pick up the hotfix shell rather than retaining the v17.6 cache.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.

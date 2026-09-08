@@ -385,7 +385,8 @@ export function ComicTitle({ as: Tag = "h1", children, className = "" }) {
 }
 
 export function WicketCount({ wickets, deliveries, className = "" }) {
-  const falls = useMemo(() => fallOfWickets(deliveries || []), [deliveries]);
+  const normalizedDeliveries = normalizeDeliveries(deliveries);
+  const falls = useMemo(() => fallOfWickets(normalizedDeliveries), [normalizedDeliveries]);
   const [open, setOpen] = useState(false);
   if (!falls.length) return <span className={className}>{wickets}</span>;
   const list = falls.slice().reverse();
@@ -432,11 +433,12 @@ function resultClass(d) {
 }
 
 export function Commentary({ deliveries, limit = null }) {
-  if (!deliveries?.length) return <div className="empty-state">No deliveries yet.</div>;
-  const reversed = deliveries.slice().reverse();
+  const normalizedDeliveries = normalizeDeliveries(deliveries);
+  if (!normalizedDeliveries.length) return <div className="empty-state">No deliveries yet.</div>;
+  const reversed = normalizedDeliveries.slice().reverse();
   const shown = limit ? reversed.slice(0, limit) : reversed;
   return <div className="commentary-list">
-    {limit && deliveries.length > limit && <div className="commentary-truncated-note">Showing last {limit} of {deliveries.length} — expand to see the full over-by-over record.</div>}
+    {limit && normalizedDeliveries.length > limit && <div className="commentary-truncated-note">Showing last {limit} of {normalizedDeliveries.length} — expand to see the full over-by-over record.</div>}
     {shown.map((d, index) => <div className={`commentary-row ${resultClass(d)}`} key={`commentary-${index}-${d.striker || "batter"}-${d.bowler || "bowler"}-${d.wicketType || d.retirementType || "run"}`}>
       <span className="ball-mark">{d.retired ? "RET" : d.wicket ? "W" : d.noBall ? "NB" : d.wide ? "WD" : d.runs}</span>
       <div><b>{d.striker || "—"}</b><span>{d.retired ? `${d.retirementType || "Retired"} — ${d.dismissed || ""}` : d.wicket ? `${d.wicketType || "Wicket"} — ${d.dismissed || ""}` : d.noBall ? "No ball" : d.wide ? "Wide" : `${d.runs} run${d.runs === 1 ? "" : "s"}`}</span></div>

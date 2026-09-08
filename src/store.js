@@ -7,6 +7,7 @@ import {
 
 import {
   clone,
+  normalizeDeliveries,
   playerStatsForMatch
 } from "./engine.js";
 
@@ -106,6 +107,12 @@ function normalizeStore(parsed) {
     normalized.matches[id] = {
       ...emptyMatch(),
       ...match,
+      innings: Array.isArray(match?.innings)
+        ? match.innings.map((inn) => ({
+            ...inn,
+            deliveries: normalizeDeliveries(inn?.deliveries)
+          }))
+        : [],
       live: {
         ...emptyMatch().live,
         ...(match.live || {})
@@ -191,11 +198,7 @@ function normalizeInternalStore(parsed) {
       innings: Array.isArray(match?.innings)
         ? match.innings.map((inn) => ({
             ...inn,
-            deliveries: Array.isArray(
-              inn?.deliveries
-            )
-              ? inn.deliveries
-              : []
+            deliveries: normalizeDeliveries(inn?.deliveries)
           }))
         : []
     };
@@ -368,13 +371,23 @@ function syncInternalMatch(matchId, match) {
   const currentMatches =
     loadInternalStore().matches;
 
-  const withStats = {
+  const normalizedMatch = {
     ...match,
+    innings: Array.isArray(match?.innings)
+      ? match.innings.map((inn) => ({
+          ...inn,
+          deliveries: normalizeDeliveries(inn?.deliveries)
+        }))
+      : []
+  };
 
-    revision: nextRevision(match),
+  const withStats = {
+    ...normalizedMatch,
+
+    revision: nextRevision(normalizedMatch),
 
     playerStats:
-      playerStatsForMatch(match),
+      playerStatsForMatch(normalizedMatch),
 
     updatedAt:
       new Date().toISOString()
@@ -703,17 +716,26 @@ export async function commitMatchUpdate(id, updater, { requireLiveStart = false 
   const nextBase = typeof updater === "function"
     ? updater(current)
     : { ...current, ...(updater || {}) };
+  const normalizedNextBase = {
+    ...nextBase,
+    innings: Array.isArray(nextBase?.innings)
+      ? nextBase.innings.map((inn) => ({
+          ...inn,
+          deliveries: normalizeDeliveries(inn?.deliveries)
+        }))
+      : []
+  };
   const next = internal
     ? {
-        ...nextBase,
+        ...normalizedNextBase,
         id,
         internal: true,
         revision: nextRevision(previous),
-        playerStats: playerStatsForMatch(nextBase),
+        playerStats: playerStatsForMatch(normalizedNextBase),
         updatedAt: new Date().toISOString()
       }
     : {
-        ...nextBase,
+        ...normalizedNextBase,
         id,
         revision: nextRevision(previous),
         updatedAt: new Date().toISOString()
@@ -775,6 +797,12 @@ export function patchMatch(id, updater) {
   store.matches[id] = {
     ...nextBase,
     id,
+    innings: Array.isArray(nextBase?.innings)
+      ? nextBase.innings.map((inn) => ({
+          ...inn,
+          deliveries: normalizeDeliveries(inn?.deliveries)
+        }))
+      : [],
     revision: nextRevision(previous),
     updatedAt: new Date().toISOString()
   };
