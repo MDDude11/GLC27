@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath, sitePath } from "./data.js";
-import { clone, computeInnings, describeResult, normalizeDeliveries } from "./engine.js";
+import { clone, computeInnings, describeResult } from "./engine.js";
 import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, Modal, morphOpen, WicketCount } from "./components.jsx";
+
+const deliveryList = (value = []) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value || typeof value !== "object") return [];
+  const entries = Object.entries(value).filter(([, delivery]) => delivery != null);
+  if (entries.length > 1 && entries.every(([key]) => /^\d+$/.test(key))) {
+    entries.sort(([a], [b]) => Number(a) - Number(b));
+  }
+  return entries.map(([, delivery]) => delivery);
+};
 
 const unique = (items) => [...new Set(items.filter(Boolean))];
 const DISMISSAL_TYPES = ["Bowled", "Caught", "LBW", "Run Out", "Hit Wicket", "Stumped", "Retired Hurt", "Retired Out"];
@@ -78,7 +88,7 @@ function ScorerDesk({ matchId, fixture }) {
   useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 1500); return () => window.clearTimeout(t); }, [toast]);
 
   const innings = Array.isArray(state?.innings)
-    ? state.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
+    ? state.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) }))
     : [];
   const currentInn = innings.at(-1);
   const score = currentInn ? computeInnings(currentInn.deliveries || []) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
@@ -185,7 +195,7 @@ function ScorerDesk({ matchId, fixture }) {
     let incomingCandidates = [];
     const result = patchMatch(matchId, (current) => {
       const inn = current.innings.at(-1);
-      const deliveries = [...normalizeDeliveries(inn?.deliveries), delivery];
+      const deliveries = [...deliveryList(inn?.deliveries), delivery];
       const nextScore = computeInnings(deliveries);
       const players = teams[inn.battingTeam].players;
       const dismissed = unique(deliveries.filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));

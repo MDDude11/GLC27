@@ -3,6 +3,16 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v18.5",
+    items: [
+      "Fixed the scorer render crash by removing the UI-level dependency on normalizeDeliveries from components.jsx and scorer.jsx.",
+      "Restored the simpler v16.2-style delivery handling in the scorer UI while still accepting Firebase array and object-shaped delivery records.",
+      "Kept normalization inside the scoring/data layer where it is needed for Firebase resilience, without importing that helper into React render components.",
+      "Bumped the PWA service-worker cache so the corrected scorer assets are treated as a new release shell.",
+      "No scoring rules, Firebase schema, match lifecycle or navigation behaviour was intentionally changed by this hotfix."
+    ]
+  },
+  {
     version: "ITB v18.0.1",
     items: [
       "Fixed the scorer page failing during React render because components.jsx referenced normalizeDeliveries without importing it.",

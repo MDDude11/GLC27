@@ -2,7 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
 import { flushPendingWrites } from "./store.js";
-import { computeInnings, fallOfWickets, inningsAnalytics, teamStats, normalizeDeliveries } from "./engine.js";
+import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
+
+const deliveryList = (value = []) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value || typeof value !== "object") return [];
+  const entries = Object.entries(value).filter(([, delivery]) => delivery != null);
+  if (entries.length > 1 && entries.every(([key]) => /^\d+$/.test(key))) {
+    entries.sort(([a], [b]) => Number(a) - Number(b));
+  }
+  return entries.map(([, delivery]) => delivery);
+};
 
 export function HalftoneField() {
   const canvasRef = useRef(null);
@@ -385,7 +395,7 @@ export function ComicTitle({ as: Tag = "h1", children, className = "" }) {
 }
 
 export function WicketCount({ wickets, deliveries, className = "" }) {
-  const normalizedDeliveries = normalizeDeliveries(deliveries);
+  const normalizedDeliveries = deliveryList(deliveries);
   const falls = useMemo(() => fallOfWickets(normalizedDeliveries), [normalizedDeliveries]);
   const [open, setOpen] = useState(false);
   if (!falls.length) return <span className={className}>{wickets}</span>;
@@ -433,7 +443,7 @@ function resultClass(d) {
 }
 
 export function Commentary({ deliveries, limit = null }) {
-  const normalizedDeliveries = normalizeDeliveries(deliveries);
+  const normalizedDeliveries = deliveryList(deliveries);
   if (!normalizedDeliveries.length) return <div className="empty-state">No deliveries yet.</div>;
   const reversed = normalizedDeliveries.slice().reverse();
   const shown = limit ? reversed.slice(0, limit) : reversed;

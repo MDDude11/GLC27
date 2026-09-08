@@ -1,3 +1,7 @@
+# v18.5 — Scorer render hotfix
+
+ITB v18.5 removes the React-render-time dependency on `normalizeDeliveries` from `components.jsx` and `scorer.jsx`. The UI now uses a local delivery-list adapter patterned after the simpler v16.2 flow, while the engine/store layers retain Firebase array/object normalization. The PWA cache is versioned to `glc27-v18-5-shell-v1`. No scoring rules, Firebase schema, match lifecycle, or navigation behaviour was intentionally changed.
+
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
 Version 18.0.1 internal test build / publish candidate.
