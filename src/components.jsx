@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY } from "./data.js";
+import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
 import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
 
@@ -249,7 +249,10 @@ function useComicNavigation() {
       const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!link || link.target === "_blank") return;
       const href = link.getAttribute("href") || "";
-      if (!href.endsWith(".html") || href.startsWith("http")) return;
+      if (!href || href.startsWith("#")) return;
+      let url;
+      try { url = new URL(href, window.location.href); } catch { return; }
+      if (url.origin !== window.location.origin || url.pathname.endsWith(".html")) return;
       event.preventDefault();
       document.startViewTransition(() => {
         window.location.href = href;
@@ -314,11 +317,11 @@ export function SiteFrame({ children, active = "" }) {
     <div className="network-status" role="status" aria-live="polite">No internet connection — reconnect to continue.</div>
     <div className="ambient ambient-a" /><div className="ambient ambient-b" /><div className="ambient ambient-c" /><div className="grain" />
     <header className="topbar">
-      <a className="brand-lockup" href="./index.html" aria-label="Gala Luxuria Cup 2027 home"><span className="brand-mark">GLC27</span><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
+      <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><span className="brand-mark">GLC27</span><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
       <nav aria-label="Primary navigation">
-        <a className={`nav-link nav-home ${active === "home" ? "active" : ""}`} href="./index.html">Home</a>
-        <a className={`nav-link nav-settings ${active === "settings" ? "active" : ""}`} href="./settings.html">Settings</a>
-        <a className={`nav-link nav-about ${active === "about" ? "active" : ""}`} href="./about.html">About</a>
+        <a className={`nav-link nav-home ${active === "home" ? "active" : ""}`} href={sitePath("/")}>Home</a>
+        <a className={`nav-link nav-settings ${active === "settings" ? "active" : ""}`} href={sitePath("/settings")}>Settings</a>
+        <a className={`nav-link nav-about ${active === "about" ? "active" : ""}`} href={sitePath("/about")}>About</a>
       </nav>
       <div className="live-indicator">THE *DRAFTS* / GLC27</div>
     </header>

@@ -1,6 +1,6 @@
-# GLsiteITB16.1 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB16.2 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 16 internal test build / publish candidate.
+Version 16.2 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -25,7 +25,7 @@ Version 16 internal test build / publish candidate.
 ## GitHub Pages
 Push the repository to GitHub, keep the default branch as `main`, and enable **Settings → Pages → GitHub Actions**. The included workflow builds `dist/` and deploys it.
 
-The Vite build uses relative asset paths, so the site works from a GitHub Pages project URL rather than requiring root-relative `/` assets.
+GitHub Pages builds use `/GLC27/` as the production base. The public site therefore supports the clean homepage at `https://mddude11.github.io/GLC27` plus extensionless routes such as `/GLC27/programme`, `/GLC27/matches`, `/GLC27/match`, `/GLC27/scorer`, `/GLC27/settings`, and `/GLC27/about`. The legacy `.html` entry pages remain available.
 
 ## Firebase Hosting
 Install the CLI with `npm install -g firebase-tools`, then authenticate with `firebase login`. From the repository root:
@@ -73,3 +73,11 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Custom scorer setup now records toss winner, toss decision, batting/bowling sides, opening batters and opening bowler before the first delivery. Drafts do not show the GLC27 pace/spin control yet.
 - Second innings has an explicit opening-player setup before scoring resumes.
 - Internal match archive filtering recognizes both legacy and new custom IDs.
+
+
+## ITB16.2 changes
+
+- GitHub Pages clean URLs are available without `.html`, including `/GLC27`, `/GLC27/programme`, `/GLC27/matches`, `/GLC27/match`, `/GLC27/scorer`, `/GLC27/settings`, and `/GLC27/about`.
+- Existing `.html` entry pages remain available for backward compatibility.
+- About now includes an ITB release-notes panel covering v12 through v16.2.
+- Navigation and match/scorer links now use the clean routes.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath } from "./data.js";
+import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath, sitePath } from "./data.js";
 import { clone, computeInnings, describeResult } from "./engine.js";
 import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, Modal, morphOpen, WicketCount } from "./components.jsx";
@@ -450,5 +450,5 @@ function Setup({ fixture, teams, setup, setSetup, onStart }) {
 }
 
 function NotFoundScorer() {
-  return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">404 / SCORER NOT FOUND</span><ComicTitle as="h2">That fixture does not exist.</ComicTitle><p>Use the match archive to open a valid scorer page.</p><a className="comic-button primary" href="./matches.html">Back to matches ↗</a></section></main></SiteFrame>;
+  return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">404 / SCORER NOT FOUND</span><ComicTitle as="h2">That fixture does not exist.</ComicTitle><p>Use the match archive to open a valid scorer page.</p><a className="comic-button primary" href={sitePath("/matches")}>Back to matches ↗</a></section></main></SiteFrame>;
 }

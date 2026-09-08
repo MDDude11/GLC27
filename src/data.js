@@ -12,6 +12,13 @@ export const SCORER_SESSION_KEY = "glt_drafts_scorer_unlocked_v7";
 export const SCORER_PASSWORD = import.meta.env?.VITE_SCORER_PASSWORD || "DRAFTS27";
 
 export const THEME_KEY = "glt_drafts_theme";
+
+export const SITE_BASE = (import.meta.env?.BASE_URL || "/").replace(/\/$/, "");
+
+export const sitePath = (path = "/") => {
+  const clean = String(path).startsWith("/") ? String(path) : `/${path}`;
+  return `${SITE_BASE}${clean}` || "/";
+};
 export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
 
@@ -163,10 +170,10 @@ export const MATCHES = {
 };
 
 export const matchPath = (id) =>
-  `./match.html?match=${encodeURIComponent(id)}`;
+  sitePath(`/match?match=${encodeURIComponent(id)}`);
 
 export const scorerPath = (id) =>
-  `./scorer.html?match=${encodeURIComponent(id)}`;
+  sitePath(`/scorer?match=${encodeURIComponent(id)}`);
 
 export function emptyLive() {
   return {

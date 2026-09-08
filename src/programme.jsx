@@ -1,3 +1,4 @@
+import { sitePath } from "./data.js";
 import { useEffect, useState } from "react";
 import { ComicTitle, SiteFrame } from "./components.jsx";
 
@@ -22,7 +23,7 @@ export default function ProgrammePage() {
         <ComicTitle>Enter the season.</ComicTitle>
       </div>
       <section className="programme-split section-wrap">
-        <a className="programme-half drafts-half" href="./matches.html">
+        <a className="programme-half drafts-half" href={sitePath("/matches")}>
           <span className="programme-kicker">OPEN / ACTIVE</span>
           <ComicTitle>The <i>DRAFTS</i></ComicTitle>
           <p className="drafts-rotating" key={line}>{line}</p>

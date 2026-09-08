@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MATCHES, MAX_OVERS, scorerPath, TEAMS } from "./data.js";
+import { MATCHES, MAX_OVERS, scorerPath, TEAMS, sitePath } from "./data.js";
 import { computeInnings, activeBatters, currentBowler } from "./engine.js";
 import { getMatch, resolveMatchFixture } from "./store.js";
 import { subscribeFirebaseMatch } from "./firebase.js";
@@ -154,11 +154,11 @@ export default function ViewerPage({ matchId }) {
       <section className="viewer-columns"><article className="comic-panel dark-panel"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Expand ↗</button></div><Commentary deliveries={current?.deliveries || []} limit={6} /></article><article className="comic-panel paper-panel"><div className="panel-heading"><div><span className="panel-kicker">MATCH SCORECARD</span><ComicTitle as="h2">Figures</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>Open ↗</button></div><Scorecard innings={innings} /></article></section>
     </> : <section className="future-note comic-panel paper-panel"><span className="panel-kicker">WAITING FOR PLAY</span><ComicTitle as="h2">Match not started.</ComicTitle><p>The public viewer will populate automatically when play begins.</p><a className="comic-button primary" href={scorerPath(matchId)}>Open scorer <span>→</span></a></section>}
 
-    <div className="viewer-footer-actions"><a className="comic-button tertiary" href="./matches.html">← Back to matches</a><a className="comic-button secondary" href={scorerPath(matchId)}>Scorer access ↗</a></div>
+    <div className="viewer-footer-actions"><a className="comic-button tertiary" href={sitePath("/matches")}>← Back to matches</a><a className="comic-button secondary" href={scorerPath(matchId)}>Scorer access ↗</a></div>
     {commentaryOpen && <Modal origin={commentaryOrigin} onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive" morphName="commentary-morph"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={current?.deliveries || []} /></Modal>}
     {scorecardOpen && <ScorecardModal innings={innings} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} morphName="scorecard-morph" />}
   </main></SiteFrame>;
 }
 
 function Stat({ label, value, note }) { return <article className="viewer-stat"><span>{label}</span><strong>{value}</strong><small>{note}</small></article>; }
-function NotFound() { return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">404 / MATCH NOT FOUND</span><ComicTitle as="h2">That fixture does not exist.</ComicTitle><p>Use the match archive to open a valid public viewer.</p><a className="comic-button primary" href="./matches.html">Back to matches ↗</a></section></main></SiteFrame>; }
+function NotFound() { return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">404 / MATCH NOT FOUND</span><ComicTitle as="h2">That fixture does not exist.</ComicTitle><p>Use the match archive to open a valid public viewer.</p><a className="comic-button primary" href={sitePath("/matches")}>Back to matches ↗</a></section></main></SiteFrame>; }

@@ -2,8 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
+const githubPages = process.env.GITHUB_ACTIONS === "true";
+
 export default defineConfig({
-  base: "./",
+  base: githubPages ? "/GLC27/" : "/",
   plugins: [react()],
   build: {
     rollupOptions: {
@@ -14,7 +16,8 @@ export default defineConfig({
         match: resolve(import.meta.dirname, "match.html"),
         scorer: resolve(import.meta.dirname, "scorer.html"),
         settings: resolve(import.meta.dirname, "settings.html"),
-        about: resolve(import.meta.dirname, "about.html")
+        about: resolve(import.meta.dirname, "about.html"),
+        notFound: resolve(import.meta.dirname, "404.html")
       }
     }
   }

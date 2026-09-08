@@ -1,11 +1,11 @@
-GLC27 ITB16.1
+GLC27 ITB16.2
 
 Copy the extracted project into the permanent Git repository (do not copy .git):
-robocopy "NEW_EXTRACTED_ITB16.1_FOLDER" "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED" /E /XD .git
+robocopy "NEW_EXTRACTED_ITB16.2_FOLDER" "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED" /E /XD .git
 
 Then run:
 cd /d "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED"
 git status
 git add .
-git commit -m "Release ITB v16.1"
+git commit -m "Release ITB v16.2"
 git push origin main

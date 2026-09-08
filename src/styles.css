@@ -1857,3 +1857,25 @@ html[data-reduce-motion="1"] .internal-match-card {
 .second-innings-setup {
   margin-top: 18px;
 }
+
+/* v16.2 — clean URLs + About release notes */
+.release-notes-wrap { display:flex; justify-content:flex-end; margin-top:18px; }
+.release-notes-button { border:2px solid var(--line); background:var(--surface); color:var(--text); box-shadow:4px 5px 0 var(--line); padding:7px 10px; font-family:"Barlow Condensed"; font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:transform .13s ease, box-shadow .13s ease, background .13s ease; }
+.release-notes-button:hover { transform:translate(-1px,-1px); box-shadow:5px 6px 0 var(--line); background:var(--accent); color:var(--ink); }
+.release-notes-button:active { transform:translate(2px,2px); box-shadow:2px 3px 0 var(--line); }
+.release-notes-overlay { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(10,8,6,.68); backdrop-filter:blur(5px); }
+.release-notes-modal { width:min(860px, 100%); max-height:min(82vh, 760px); overflow:auto; padding:26px; }
+.release-notes-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:20px; }
+.release-notes-close { width:34px; height:34px; border:2px solid var(--line); background:var(--paper-2); color:var(--ink); box-shadow:3px 4px 0 var(--line); font-size:23px; line-height:1; cursor:pointer; }
+.release-notes-close:hover { transform:translate(-1px,-1px); box-shadow:4px 5px 0 var(--line); background:var(--accent); }
+.release-notes-list { display:grid; gap:14px; }
+.release-note-entry { padding:15px 16px; border:2px solid var(--line-soft); background:rgba(255,255,255,.035); }
+.release-note-version { margin-bottom:8px; color:var(--accent); font-family:"Barlow Condensed"; font-size:14px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.release-note-entry ul { margin:0; padding-left:18px; }
+.release-note-entry li { margin:5px 0; color:var(--text); line-height:1.5; font-size:13px; }
+@media (max-width: 640px) {
+  .release-notes-overlay { padding:10px; align-items:end; }
+  .release-notes-modal { max-height:86vh; padding:18px; }
+  .release-notes-wrap { justify-content:stretch; }
+  .release-notes-button { width:100%; }
+}

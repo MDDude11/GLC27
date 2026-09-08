@@ -1,3 +1,4 @@
+import { sitePath } from "./data.js";
 import { useEffect, useState } from "react";
 import { HandDrawnBall, HandDrawnBat, SiteFrame } from "./components.jsx";
 
@@ -35,7 +36,7 @@ export default function HomePage() {
           <HandDrawnBall className="landing-ball" />
           <span className="landing-sticker">GLC27</span>
         </div>
-        <a className="comic-button enter-website landing-enter" href="./programme.html">Enter website <span>↗</span></a>
+        <a className="comic-button enter-website landing-enter" href={sitePath("/programme")}>Enter website <span>↗</span></a>
       </section>
     </main>
   </SiteFrame>;
