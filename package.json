@@ -1,5 +1,5 @@
 {
-  "name": "glt-drafts-2027-itb19-firebase-pwa-stable",
+  "name": "glt-drafts-2027-itb21-firebase-pwa-stable",
   "private": true,
   "version": "21.0.0",
   "type": "module",
@@ -20,5 +20,5 @@
   "devDependencies": {
     "typescript": "^5.9.2"
   },
-  "description": "GLsiteITB18 internal test build for The DRAFTS live match desk, with Firebase-first scoring, PWA resilience and static-hosting fallbacks."
+  "description": "Gala Luxuria Cup 2027 internal test build for The DRAFTS live match desk, with reliable incoming-batter selection, recursive Super Overs and in-place halftone dot growth."
 }

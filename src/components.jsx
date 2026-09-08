@@ -41,8 +41,8 @@ export function HalftoneField() {
     const getRGB = () => getComputedStyle(document.documentElement).getPropertyValue("--halftone-rgb").trim() || "245,238,223";
 
     const drawDot = (targetCtx, x, y, current = null) => {
-      let dotX = x;
-      let dotY = y;
+      const dotX = x;
+      const dotY = y;
       let dotR = 1.15;
       if (current?.active && fine.matches) {
         const dx = current.x - x;
@@ -52,9 +52,6 @@ export function HalftoneField() {
         const influence = Math.max(0, 1 - dist / radius);
         if (influence > 0) {
           const eased = influence * influence * (3 - 2 * influence);
-          const pull = gap * .28 * eased;
-          dotX += dx * (pull / Math.max(dist, 1));
-          dotY += dy * (pull / Math.max(dist, 1));
           dotR += 5.4 * eased;
         }
       }
@@ -92,8 +89,6 @@ export function HalftoneField() {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const radius = gap * 4.2;
-      ctx.save();
-      ctx.globalCompositeOperation = "destination-out";
       const minX = Math.max(gap * .55, Math.floor((current.x - radius) / gap) * gap + gap * .55);
       const maxX = Math.min(width + gap, Math.ceil((current.x + radius) / gap) * gap + gap * .55);
       const minY = Math.max(gap * .55, Math.floor((current.y - radius) / gap) * gap + gap * .55);
@@ -105,14 +100,8 @@ export function HalftoneField() {
           const dist = Math.hypot(dx, dy);
           const influence = Math.max(0, 1 - dist / radius);
           if (influence <= 0) continue;
-          ctx.beginPath();
-          ctx.arc(x, y, 8.8, 0, Math.PI * 2);
-          ctx.fill();
+          drawDot(ctx, x, y, current);
         }
-      }
-      ctx.restore();
-      for (let y = minY; y <= maxY; y += gap) {
-        for (let x = minX; x <= maxX; x += gap) drawDot(ctx, x, y, current);
       }
     };
 

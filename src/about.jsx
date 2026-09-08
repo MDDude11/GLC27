@@ -5,6 +5,17 @@ const RELEASE_NOTES = [
   {
     version: "ITB v21",
     items: [
+      "Fixed the incoming-batter flow after a wicket or retirement so selecting a batter in the popup now commits that exact selection instead of revalidating against stale live-player state.",
+      "The incoming-batter popup now keeps an explicit eligible-player list, supports direct player selection, and verifies that the selected batter is still available before writing the new live state.",
+      "Fixed the same replacement flow for both the main match and recursive Super Over stages.",
+      "Changed the halftone background interaction so the original dot grows in place toward the pointer, with no positional pull, duplicate under-dot or second dot being painted as the enlarged state.",
+      "Bumped the PWA shell cache to ensure v21 clients receive the corrected scorer and background interaction code.",
+      "No changes were made to the underlying dismissal, retirement or match-scoring rules beyond making the existing incoming-player flow reliable."
+    ]
+  },
+  {
+    version: "ITB v20",
+    items: [
       "Fixed the public viewer crash caused by a missing MAX_WICKETS import.",
       "Made compact mode a true information-at-a-glance presentation while keeping scoring behaviour unchanged.",
       "Hardened retirement, wicket and incoming-player selection so eligible batters remain selectable after each dismissal type.",

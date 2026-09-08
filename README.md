@@ -1,8 +1,20 @@
-# v21 — Match experience + Super Over reliability release
+# v21 — Incoming batter + halftone interaction fix
 
-ITB v21 keeps the v19 scoring model intact while fixing the public viewer render crash, making compact mode a true information-at-a-glance presentation, hardening retirement/new-player flows, and making Super Over team selection explicit. The service-worker shell is versioned to `glc27-v21-shell-v1`.
+ITB v21 is the follow-up patch to v20. It fixes the live replacement-batter flow after wickets/retirements and makes the background halftone dots enlarge in place rather than appearing as a second dot. The service-worker shell is versioned to `glc27-v21-shell-v2`.
 
-## v21.0.0 — Match experience + recursive Super Overs
+## v21.0.0 — Scorer replacement flow + in-place dot growth
+- Fixed the **Bring in** flow after a wicket or retirement. The popup now owns a stable eligible-player list and passes the selected batter directly to the scorer commit path.
+- Removed the stale-state race that could reject a batter immediately after the user had selected them with **Please select a new batsman**.
+- Added a final live-state availability check immediately before writing the replacement batter, for both the main match and recursive Super Overs.
+- Kept the existing wicket/retirement rules unchanged: genuine wickets remain wickets, Retired Hurt remains non-wicket, and Retired Out remains an innings wicket without a bowler wicket.
+- Changed the halftone pointer effect so dots grow at their original coordinates. The effect no longer pulls the dot away and paints another enlarged dot over the old position.
+- Bumped the PWA cache shell so the v21 scorer and halftone fixes are picked up by updated clients.
+
+# v20 — Match experience + Super Over reliability release
+
+The build previously labelled v21 is formally treated as v20. It contains the match-experience, retirement and recursive Super Over work from the prior release candidate.
+
+## v20.0.0 — Match experience + recursive Super Overs
 - Tied main matches expose **BEGIN SUPER OVER** beside **VIEW SCORECARD**.
 - Tied Super Overs recursively expose the same action for the next Super Over with no arbitrary depth limit.
 - Main match and every Super Over remain attached to the same Firebase match record and appear in progression/scorecard views.
@@ -11,11 +23,8 @@ ITB v21 keeps the v19 scoring model intact while fixing the public viewer render
 - Added compact information-at-a-glance presentation, expandable commentary/scorecard rows, smaller live controls, and responsive mobile reflow across match-specific pages.
 - Added anchored section headers that condense while scrolling.
 - Removed Pace/Spin setup selection and made setup surfaces theme-aware.
-- Put popup layers above the footer/page chrome, softened Programme Drafts hover styling, and fixed magnetic halftone dots to enlarge the original dots without duplicate under-dots.
-- Fixed the viewer `MAX_WICKETS` production reference error.
-- Made compact mode presentation-only, with smaller live cards, a beside-the-cards over strip, collapsed commentary/scorecard rows, touch-safe controls, and mobile reflow.
-- Prevented duplicate striker/non-striker choices, stale dismissed-player choices, wrong-team Super Over setup, and dark-mode bowler text loss.
-- Reduced interaction overhead during scrolling, rapid scoring, and page changes.
+- Put popup layers above the footer/page chrome, refined Programme Drafts hover styling, and fixed the halftone interaction architecture.
+- Fixed the viewer `MAX_WICKETS` production reference error and hardened Super Over setup, duplicate-player and stale dismissed-player handling.
 
 
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*

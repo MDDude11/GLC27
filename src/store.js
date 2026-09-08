@@ -29,8 +29,8 @@ import {
 } from "./admin.js";
 
 const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v21";
-const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v19"];
-const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v20", "glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
+const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v20"];
+const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v19", "glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();
 
