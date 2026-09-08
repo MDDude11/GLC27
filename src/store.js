@@ -27,6 +27,74 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v17";
+const flushLocks = new Set();
+const matchWriteChains = new Map();
+
+function writeFirebaseMatchInOrder(matchId, match) {
+  const previous = matchWriteChains.get(matchId) || Promise.resolve();
+  const current = previous
+    .catch(() => {})
+    .then(() => writeFirebaseMatch(matchId, match));
+  matchWriteChains.set(matchId, current.finally(() => {
+    if (matchWriteChains.get(matchId) === current) matchWriteChains.delete(matchId);
+  }));
+  return current;
+}
+
+function readWriteQueue() {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveWriteQueue(queue) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WRITE_QUEUE_KEY, JSON.stringify(queue));
+  } catch {}
+}
+
+function nextRevision(match) {
+  return Math.max(0, Number(match?.revision) || 0) + 1;
+}
+
+function enqueueFirebaseMatchWrite(matchId, match) {
+  const queue = readWriteQueue().filter((entry) => entry.matchId !== matchId);
+  queue.push({ matchId, revision: Number(match?.revision) || 0, match });
+  saveWriteQueue(queue.slice(-50));
+  if (navigator.onLine !== false) void flushPendingWrites();
+}
+
+export async function flushPendingWrites() {
+  if (typeof window === "undefined" || navigator.onLine === false || flushLocks.has("firebase")) return;
+  if (!readWriteQueue().length) return;
+  flushLocks.add("firebase");
+  try {
+    while (navigator.onLine !== false) {
+      const queue = readWriteQueue();
+      if (!queue.length) break;
+      const item = queue[0];
+      try {
+        await writeFirebaseMatchInOrder(item.matchId, item.match);
+        const latest = readWriteQueue();
+        const index = latest.findIndex((entry) => entry.matchId === item.matchId && Number(entry.revision) === Number(item.revision));
+        if (index >= 0) latest.splice(index, 1);
+        saveWriteQueue(latest);
+      } catch (error) {
+        console.warn(`Firebase queued write paused for ${item.matchId}.`, error);
+        break;
+      }
+    }
+  } finally {
+    flushLocks.delete("firebase");
+  }
+}
+
 function normalizeStore(parsed) {
   if (!parsed?.matches) return null;
 
@@ -303,6 +371,8 @@ function syncInternalMatch(matchId, match) {
   const withStats = {
     ...match,
 
+    revision: nextRevision(match),
+
     playerStats:
       playerStatsForMatch(match),
 
@@ -324,15 +394,7 @@ function syncInternalMatch(matchId, match) {
     });
   } catch {}
 
-  void writeFirebaseMatch(
-    matchId,
-    withStats
-  ).catch((error) => {
-    console.warn(
-      `Firebase internal write failed for ${matchId}.`,
-      error
-    );
-  });
+  enqueueFirebaseMatchWrite(matchId, withStats);
 
   void writeFirebaseInternalPlayerStats(
     careerStats
@@ -491,6 +553,7 @@ export async function listInternalMatches() {
 export async function createInternalMatch(match) {
   const withStats = {
     ...match,
+    revision: nextRevision(match),
     playerStats: playerStatsForMatch(match),
     updatedAt: new Date().toISOString()
   };
@@ -596,20 +659,10 @@ export function resetMatch(id) {
       playerStats: {}
     };
 
-    store.matches[id] =
-      reset;
-
+    const resetWithRevision = { ...reset, revision: nextRevision(current), updatedAt: new Date().toISOString() };
+    store.matches[id] = resetWithRevision;
     persistInternalStore(store);
-
-    void writeFirebaseMatch(
-      id,
-      reset
-    ).catch((error) =>
-      console.warn(
-        "Firebase internal reset sync failed.",
-        error
-      )
-    );
+    enqueueFirebaseMatchWrite(id, resetWithRevision);
 
     window.dispatchEvent(
       new CustomEvent(
@@ -620,26 +673,15 @@ export function resetMatch(id) {
       )
     );
 
-    return reset;
+    return resetWithRevision;
   }
 
   const store =
     loadStore();
-
-  store.matches[id] =
-    emptyMatch();
-
+  const resetBase = emptyMatch();
+  store.matches[id] = { ...resetBase, id, revision: nextRevision(store.matches[id]), updatedAt: new Date().toISOString() };
   saveStore(store);
-
-  void writeFirebaseMatch(
-    id,
-    store.matches[id]
-  ).catch((error) =>
-    console.warn(
-      "Firebase reset sync failed.",
-      error
-    )
-  );
+  enqueueFirebaseMatchWrite(id, store.matches[id]);
 
   window.dispatchEvent(
     new CustomEvent(
@@ -666,14 +708,20 @@ export async function commitMatchUpdate(id, updater, { requireLiveStart = false 
         ...nextBase,
         id,
         internal: true,
+        revision: nextRevision(previous),
         playerStats: playerStatsForMatch(nextBase),
         updatedAt: new Date().toISOString()
       }
-    : nextBase;
+    : {
+        ...nextBase,
+        id,
+        revision: nextRevision(previous),
+        updatedAt: new Date().toISOString()
+      };
 
   // Start actions are intentionally remote-first. The UI must not report a
   // match as started until the authoritative Firebase write has completed.
-  await writeFirebaseMatch(id, next);
+  await writeFirebaseMatchInOrder(id, next);
 
   if (requireLiveStart) {
     const verified = await getFirebaseInternalMatch(id);
@@ -720,22 +768,19 @@ export function patchMatch(id, updater) {
   const current =
     clone(previous);
 
-  store.matches[id] =
-    typeof updater === "function"
-      ? updater(current)
-      : updater;
+  const nextBase = typeof updater === "function"
+    ? updater(current)
+    : { ...current, ...(updater || {}) };
+
+  store.matches[id] = {
+    ...nextBase,
+    id,
+    revision: nextRevision(previous),
+    updatedAt: new Date().toISOString()
+  };
 
   saveStore(store);
-
-  void writeFirebaseMatch(
-    id,
-    store.matches[id]
-  ).catch((error) =>
-    console.warn(
-      `Firebase write failed for ${id}.`,
-      error
-    )
-  );
+  enqueueFirebaseMatchWrite(id, store.matches[id]);
 
   window.dispatchEvent(
     new CustomEvent(
@@ -817,6 +862,10 @@ export function useLiveMatchState(
   let active = true;
   let unsubscribeFirebase = () => {};
 
+  try {
+    setState(clone(getMatch(id)));
+  } catch {}
+
   const refresh = (event) => {
     if (
       !event ||
@@ -830,7 +879,9 @@ export function useLiveMatchState(
   window.addEventListener("storage", refresh);
   window.addEventListener(eventName, refresh);
   window.addEventListener("focus", refresh);
+  window.addEventListener("online", flushPendingWrites);
   document.addEventListener("visibilitychange", refresh);
+  void flushPendingWrites();
 
   void (async () => {
     let existing = null;
@@ -890,11 +941,12 @@ export function useLiveMatchState(
         }
 
         const localCurrent = getMatch(id);
+        const localRevision = Number(localCurrent?.revision) || 0;
+        const remoteRevision = Number(remoteMatch?.revision) || 0;
+        if (remoteRevision < localRevision) return;
         const localTime = Date.parse(localCurrent?.updatedAt || "");
         const remoteTime = Date.parse(remoteMatch?.updatedAt || "");
-        if (Number.isFinite(localTime) && Number.isFinite(remoteTime) && remoteTime < localTime) {
-          return;
-        }
+        if (remoteRevision === localRevision && Number.isFinite(localTime) && Number.isFinite(remoteTime) && remoteTime < localTime) return;
 
         const normalized = internal
           ? normalizeInternalRemoteMatch(id, remoteMatch)
@@ -937,6 +989,7 @@ export function useLiveMatchState(
     window.removeEventListener("storage", refresh);
     window.removeEventListener(eventName, refresh);
     window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", flushPendingWrites);
     document.removeEventListener("visibilitychange", refresh);
   };
 }

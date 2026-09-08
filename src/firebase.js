@@ -94,8 +94,24 @@ export async function subscribeFirebaseMatch(matchId, onMatch, onError) {
 }
 
 export async function writeFirebaseMatch(matchId, match) {
-  const { database, ref, set } = await loadFirebase();
-  await set(ref(database, `${MATCHES_ROOT}/${matchId}`), match);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(
+      firebaseRestUrl(`${MATCHES_ROOT}/${encodeURIComponent(matchId)}`),
+      {
+        method: "PUT",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(match),
+        signal: controller.signal
+      }
+    );
+    if (!response.ok) throw new Error(`Firebase REST PUT failed (${response.status})`);
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function seedFirebaseMatch(matchId, match) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
+import { flushPendingWrites } from "./store.js";
 import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
 
 export function HalftoneField() {
@@ -281,6 +282,7 @@ function useConnectivityStatus() {
 
     void watchFirebaseConnection((connected) => {
       setStatus(navigator.onLine !== false && connected);
+      if (connected) void flushPendingWrites();
     }).then((unsubscribe) => {
       if (!active) unsubscribe?.();
       else if (typeof unsubscribe === "function") firebaseUnsubscribe = unsubscribe;
@@ -298,6 +300,11 @@ function useConnectivityStatus() {
 
 export function SiteFrame({ children, active = "" }) {
   useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      void navigator.serviceWorker.register(sitePath("/sw.js"), { scope: sitePath("/") }).catch((error) => {
+        console.warn("PWA service worker registration failed.", error);
+      });
+    }
     const saved = localStorage.getItem(THEME_KEY);
     document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
     applySettingsToDocument(loadSettings());
@@ -438,7 +445,16 @@ export function PlayerStats({ state, teamCodes, teams = TEAMS, mode = "viewer" }
 export function Modal({ children, onClose, origin = null, className = "", ariaLabel = "Dialog", morphName = "" }) {
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef(null);
-  useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") requestClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(closeTimerRef.current);
+    };
+  });
   const requestClose = () => {
     if (closing) return;
     if (document.documentElement.dataset.reduceMotion === "1") { onClose?.(); return; }

@@ -1,12 +1,13 @@
 {
-  "name": "glt-drafts-2027-itb16.2-clean-urls",
+  "name": "glt-drafts-2027-itb17-pwa-offline-safe",
   "private": true,
-  "version": "16.2.0",
+  "version": "17.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "node scripts/lint.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",
@@ -14,6 +15,8 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
-  "devDependencies": {},
-  "description": "GLsiteITB16.2 internal test build for The DRAFTS live match desk"
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "description": "GLsiteITB17 internal test build for The DRAFTS live match desk, with PWA and offline-safe scoring."
 }

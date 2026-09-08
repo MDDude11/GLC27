@@ -1879,3 +1879,45 @@ html[data-reduce-motion="1"] .internal-match-card {
   .release-notes-wrap { justify-content:stretch; }
   .release-notes-button { width:100%; }
 }
+
+/* v17: installable app + safer long-form dialogs */
+.release-notes-modal {
+  width:min(900px,100%);
+  max-height:min(calc(100dvh - 32px),860px);
+  padding:0;
+}
+.release-notes-head {
+  position:sticky;
+  top:0;
+  z-index:5;
+  flex:0 0 auto;
+  margin:0;
+  padding:20px 22px 14px;
+  background:inherit;
+  border-bottom:3px solid var(--line);
+}
+.release-notes-scroll {
+  min-height:0;
+  overflow:auto;
+  padding:20px 22px 24px;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.release-notes-close {
+  width:38px;
+  height:38px;
+  padding:7px 10px;
+  display:grid;
+  place-items:center;
+  font-size:24px;
+  line-height:1;
+}
+.release-note-entry + .release-note-entry { margin-top:16px; }
+.release-note-entry ul { margin:10px 0 0; padding-left:20px; }
+.release-note-entry li { margin:5px 0; }
+@media (max-width:700px) {
+  .release-notes-modal { max-height:calc(100dvh - 16px); }
+  .release-notes-head { padding:15px; }
+  .release-notes-scroll { padding:15px 15px 18px; }
+  .release-notes-close { width:36px; height:36px; }
+}

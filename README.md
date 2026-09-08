@@ -1,6 +1,6 @@
-# GLsiteITB16.2 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB17 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 16.2 internal test build / publish candidate.
+Version 17.0 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -81,3 +81,13 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Existing `.html` entry pages remain available for backward compatibility.
 - About now includes an ITB release-notes panel covering v12 through v16.2.
 - Navigation and match/scorer links now use the clean routes.
+
+## ITB17 changes
+
+- Added an installable PWA shell with a manifest, standalone display metadata, app icons and a GitHub Pages-aware service worker.
+- Added a persistent offline Firebase write queue for scorer state. The latest complete match snapshot is retained locally and retried automatically when connectivity returns.
+- Added monotonic per-match revisions and serialized remote writes so rapid ball-by-ball updates are committed in order; older Firebase callbacks are ignored when they cannot represent newer local state.
+- Viewer startup now hydrates immediately from its last-known LocalStorage snapshot before attempting Firebase, keeping the viewer usable during temporary network loss.
+- Made modal closing consistent: every shared modal responds to Escape, and long release-note content keeps its close control in a sticky header while the body scrolls independently.
+- Refined the About page so `THE DRAFTS` is the section kicker and `The official player evaluation point` is the main heading, matching the hierarchy of `The Official Tournament`.
+- Added a deterministic project lint gate backed by the TypeScript parser and wired it ahead of the production build in GitHub Actions. This release does not claim third-party ESLint coverage because the environment cannot install new registry packages during offline validation.
