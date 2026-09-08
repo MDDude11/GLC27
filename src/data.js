@@ -1,5 +1,7 @@
 export const MAX_OVERS = 6;
 export const MAX_WICKETS = 3;
+export const SUPER_OVER_MAX_OVERS = 1;
+export const SUPER_OVER_MAX_WICKETS = 2;
 export const STORAGE_KEY = "glt_drafts_2026_multipage_v7";
 export const LEGACY_STORAGE_KEYS = [
   "glt_drafts_2026_multipage_v6",
@@ -172,8 +174,10 @@ export const MATCHES = {
 export const matchPath = (id) =>
   sitePath(`/match?match=${encodeURIComponent(id)}`);
 
-export const scorerPath = (id) =>
-  sitePath(`/scorer.html?match=${encodeURIComponent(id)}`);
+export const scorerPath = (id, superOverIndex = 0) => {
+  const query = `match=${encodeURIComponent(id)}${Number(superOverIndex) > 0 ? `&super=${Number(superOverIndex)}` : ""}`;
+  return sitePath(`/scorer.html?${query}`);
+};
 
 export function emptyLive() {
   return {
@@ -182,7 +186,19 @@ export function emptyLive() {
     bowler: "",
     previousBowler: "",
     freeHit: false,
-    ballType: "pace"
+    ballType: "pace",
+    retiredHurt: []
+  };
+}
+
+export function emptyStage(index = 0) {
+  return {
+    index,
+    status: "upcoming",
+    innings: [],
+    live: emptyLive(),
+    result: null,
+    toss: null
   };
 }
 
@@ -192,7 +208,9 @@ export function emptyMatch() {
     innings: [],
     live: emptyLive(),
     result: null,
-    toss: null
+    finalResult: null,
+    toss: null,
+    superOvers: []
   };
 }
 

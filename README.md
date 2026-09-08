@@ -1,6 +1,18 @@
-# v18.5 — Scorer render hotfix
+# v19 — Match experience + Super Over release
 
-ITB v18.5 removes the React-render-time dependency on `normalizeDeliveries` from `components.jsx` and `scorer.jsx`. The UI now uses a local delivery-list adapter patterned after the simpler v16.2 flow, while the engine/store layers retain Firebase array/object normalization. The PWA cache is versioned to `glc27-v18-5-shell-v1`. No scoring rules, Firebase schema, match lifecycle, or navigation behaviour was intentionally changed.
+ITB v19 adds recursive Super Over scoring, restores the dedicated v17.1 retirement flow, and applies the compact match-experience redesign across scorer and public match views. It also fixes setup theming, anchored/condensed section headers, modal stacking, the Programme Drafts hover treatment, and the magnetic halftone enlargement. The service-worker shell is versioned to `glc27-v19-shell-v1`.
+
+## v19.0.0 — Match experience + recursive Super Overs
+- Tied main matches expose **BEGIN SUPER OVER** beside **VIEW SCORECARD**.
+- Tied Super Overs recursively expose the same action for the next Super Over with no arbitrary depth limit.
+- Main match and every Super Over remain attached to the same Firebase match record and appear in progression/scorecard views.
+- Restored dedicated **RETIRED HURT** and **RETIRED OUT** controls below WIDE; normal WICKET contains only genuine dismissal types.
+- Retired Hurt is not a wicket or bowler wicket, uses a grey `H` counter state, and can return only after two wickets are down. Retired Out is an innings wicket but not a bowler wicket.
+- Added compact information-at-a-glance presentation, expandable commentary/scorecard rows, smaller live controls, and responsive mobile reflow across match-specific pages.
+- Added anchored section headers that condense while scrolling.
+- Removed Pace/Spin setup selection and made setup surfaces theme-aware.
+- Put popup layers above the footer/page chrome, softened Programme Drafts hover styling, and fixed magnetic halftone dots to enlarge the original dots without duplicate under-dots.
+
 
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*
 

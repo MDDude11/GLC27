@@ -1,8 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath, sitePath } from "./data.js";
+import {
+  MATCHES,
+  MAX_OVERS,
+  MAX_WICKETS,
+  SUPER_OVER_MAX_OVERS,
+  SUPER_OVER_MAX_WICKETS,
+  SCORER_PASSWORD,
+  SCORER_SESSION_KEY,
+  TEAMS,
+  emptyLive,
+  emptyStage,
+  matchPath,
+  scorerPath,
+  sitePath
+} from "./data.js";
 import { clone, computeInnings, describeResult } from "./engine.js";
 import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
-import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, Modal, morphOpen, WicketCount } from "./components.jsx";
+import {
+  SiteFrame,
+  ComicTitle,
+  TeamBadge,
+  Commentary,
+  Scorecard,
+  PlayerStats,
+  ScorecardModal,
+  Modal,
+  WicketCount
+} from "./components.jsx";
 
 const deliveryList = (value = []) => {
   if (Array.isArray(value)) return value.filter(Boolean);
@@ -14,8 +38,8 @@ const deliveryList = (value = []) => {
   return entries.map(([, delivery]) => delivery);
 };
 
-const unique = (items) => [...new Set(items.filter(Boolean))];
-const DISMISSAL_TYPES = ["Bowled", "Caught", "LBW", "Run Out", "Hit Wicket", "Stumped", "Retired Hurt", "Retired Out"];
+const unique = (items) => [...new Set((items || []).filter(Boolean))];
+const DISMISSAL_TYPES = ["Bowled", "Caught", "LBW", "Run Out", "Hit Wicket", "Stumped"];
 
 function originFromEvent(event) {
   const r = event?.currentTarget?.getBoundingClientRect?.();
@@ -23,134 +47,213 @@ function originFromEvent(event) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-export default function ScorerPage({ matchId }) {
-  const [fixture, setFixture] = useState(() => MATCHES[matchId] || null);
-  const [loading, setLoading] = useState(!MATCHES[matchId]);
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(`${SCORER_SESSION_KEY}_${matchId}`) === "1");
-  const [password, setPassword] = useState("");
-  useEffect(() => { let active = true; if (MATCHES[matchId]) return undefined; void resolveMatchFixture(matchId).then((resolved) => { if (active) { setFixture(resolved); setLoading(false); } }); return () => { active = false; }; }, [matchId]);
-  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the match record from Firebase.</p></section></main></SiteFrame>;
-  if (!fixture) return <NotFoundScorer />;
-  if (!unlocked) return <PasswordGate password={password} setPassword={setPassword} onUnlock={() => setUnlocked(true)} fixture={fixture} />;
-  return <ScorerDesk matchId={matchId} fixture={fixture} />;
+function normaliseStage(raw, index) {
+  const fallback = emptyStage(index);
+  return {
+    ...fallback,
+    ...(raw || {}),
+    index,
+    stage: "superOver",
+    innings: Array.isArray(raw?.innings)
+      ? raw.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries), maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS }))
+      : [],
+    live: { ...fallback.live, ...(raw?.live || {}) },
+    maxOvers: SUPER_OVER_MAX_OVERS,
+    maxWickets: SUPER_OVER_MAX_WICKETS
+  };
 }
 
-function PasswordGate({ password, setPassword, onUnlock, fixture }) {
+function stageResult(stage) {
+  return stage?.innings?.length >= 2 ? describeResult(stage, { maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS }) : null;
+}
+
+export default function ScorerPage({ matchId, superOverIndex = 0 }) {
+  const [fixture, setFixture] = useState(() => MATCHES[matchId] || null);
+  const [loading, setLoading] = useState(!MATCHES[matchId]);
+  const sessionKey = `${SCORER_SESSION_KEY}_${matchId}`;
+  const [unlocked, setUnlocked] = useState(() => typeof sessionStorage !== "undefined" && sessionStorage.getItem(sessionKey) === "1");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (MATCHES[matchId]) return undefined;
+    void resolveMatchFixture(matchId).then((resolved) => {
+      if (active) {
+        setFixture(resolved);
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [matchId]);
+
+  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the match record from Firebase.</p></section></main></SiteFrame>;
+  if (!fixture) return <NotFoundScorer />;
+  if (!unlocked) return <PasswordGate password={password} setPassword={setPassword} onUnlock={() => setUnlocked(true)} fixture={fixture} sessionKey={sessionKey} />;
+  return <ScorerDesk key={`${matchId}-${superOverIndex}`} matchId={matchId} fixture={fixture} superOverIndex={Number(superOverIndex) || 0} />;
+}
+
+function PasswordGate({ password, setPassword, onUnlock, fixture, sessionKey }) {
   const [error, setError] = useState("");
-  const submit = (e) => {
-    e.preventDefault();
+  const submit = (event) => {
+    event.preventDefault();
     if (password === SCORER_PASSWORD) {
-      sessionStorage.setItem(`${SCORER_SESSION_KEY}_${fixture.id}`, "1");
+      sessionStorage.setItem(sessionKey, "1");
       onUnlock();
-    } else setError("Incorrect scorer password.");
+    } else {
+      setError("Incorrect scorer password.");
+    }
   };
   return <SiteFrame active="matches"><main className="section-wrap page-section password-page"><section className="password-card comic-panel paper-panel"><span className="panel-kicker">OFFICIALS ONLY / {fixture.label}</span><ComicTitle>Scorer <i>access</i></ComicTitle><p>This page controls the live match.</p><form onSubmit={submit}><label>Scorer password<input autoFocus type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="Enter password" /></label>{error && <div className="form-error">{error}</div>}<button className="comic-button primary wide-button" type="submit">Unlock scorer <span>→</span></button></form><a className="back-link" href={matchPath(fixture.id)}>← Return to public viewer</a></section></main></SiteFrame>;
 }
 
-function ScorerDesk({ matchId, fixture }) {
+function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const teams = fixture.teams || TEAMS;
+  const isSuper = superOverIndex > 0;
   const [state, setState] = useState(() => getMatch(matchId));
   const [history, setHistory] = useState([]);
-  const battingPlayers = teams[fixture.t1]?.players || [];
-  const bowlingPlayers = teams[fixture.t2]?.players || [];
-  const [setup, setSetup] = useState({
-    batting: fixture.t1,
-    tossWinner: fixture.t1,
-    tossDecision: "bat",
-    striker: battingPlayers[0] || "",
-    nonStriker: battingPlayers[1] || "",
-    bowler: bowlingPlayers[0] || "",
-    ballType: "pace"
-  });
-  const [secondSetup, setSecondSetup] = useState({
-    striker: "",
-    nonStriker: "",
-    bowler: "",
-    ballType: "pace"
-  });
   const [toast, setToast] = useState("");
   const [wicketOpen, setWicketOpen] = useState(false);
   const [wicketOrigin, setWicketOrigin] = useState(null);
   const [wicketDraft, setWicketDraft] = useState({ type: "Bowled", dismissed: "", outEnd: "striker", fielder: "" });
+  const [retirementOpen, setRetirementOpen] = useState(false);
+  const [retirementOrigin, setRetirementOrigin] = useState(null);
+  const [retirementType, setRetirementType] = useState("Retired Hurt");
+  const [retirementPlayer, setRetirementPlayer] = useState("");
   const [newBatsmanOpen, setNewBatsmanOpen] = useState(false);
-  const [newBatsmanOrigin, setNewBatsmanOrigin] = useState(null);
   const [newBatsman, setNewBatsman] = useState("");
   const [newBatsmanSlot, setNewBatsmanSlot] = useState("");
   const [newBatsmanExcluded, setNewBatsmanExcluded] = useState("");
   const [bowlerOpen, setBowlerOpen] = useState(false);
   const [bowlerOrigin, setBowlerOrigin] = useState(null);
   const [commentaryOpen, setCommentaryOpen] = useState(false);
-  const [commentaryOrigin, setCommentaryOrigin] = useState(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [scorecardOrigin, setScorecardOrigin] = useState(null);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnPlayer, setReturnPlayer] = useState("");
 
-  useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
-  useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 1500); return () => window.clearTimeout(t); }, [toast]);
+  const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1)) : [];
+  const currentStage = isSuper ? (rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex)) : {
+    index: 0,
+    stage: "main",
+    status: state?.status || "upcoming",
+    innings: Array.isArray(state?.innings) ? state.innings : [],
+    live: state?.live || emptyLive(),
+    result: state?.result || null,
+    maxOvers: MAX_OVERS,
+    maxWickets: MAX_WICKETS
+  };
 
-  const innings = Array.isArray(state?.innings)
-    ? state.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) }))
+  const stageInnings = Array.isArray(currentStage?.innings)
+    ? currentStage.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries), maxOvers: isSuper ? SUPER_OVER_MAX_OVERS : MAX_OVERS, maxWickets: isSuper ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS }))
     : [];
-  const currentInn = innings.at(-1);
-  const score = currentInn ? computeInnings(currentInn.deliveries || []) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
-  const firstScore = innings[0] ? computeInnings(innings[0].deliveries || []) : null;
-  const target = innings.length > 1 && firstScore ? firstScore.runs + 1 : null;
-  const battingTeam = currentInn?.battingTeam || (innings.length === 0 ? setup.batting : fixture.t2);
+  const currentInn = stageInnings.at(-1);
+  const maxOvers = isSuper ? SUPER_OVER_MAX_OVERS : MAX_OVERS;
+  const maxWickets = isSuper ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS;
+  const score = currentInn ? computeInnings(currentInn.deliveries, { maxOvers, maxWickets }) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
+  const firstScore = stageInnings[0] ? computeInnings(stageInnings[0].deliveries, { maxOvers, maxWickets }) : null;
+  const target = stageInnings.length > 1 && firstScore ? firstScore.runs + 1 : null;
+  const battingTeam = currentInn?.battingTeam || (stageInnings.length ? stageInnings[0].battingTeam : (isSuper ? "" : fixture.t1));
   const bowlingTeam = currentInn?.bowlingTeam || (battingTeam === fixture.t1 ? fixture.t2 : fixture.t1);
-  const hasStartedInnings = innings.length > 0;
-  const effectiveStatus = state.status === "live" && !hasStartedInnings ? "upcoming" : state.status;
   const activeBattingPlayers = teams[battingTeam]?.players || [];
   const activeBowlingPlayers = teams[bowlingTeam]?.players || [];
-  const inningsCards = innings.map((inn, i) => ({ ...inn, score: computeInnings(inn.deliveries || []), index: i }));
-  useEffect(() => {
-    if (state.status !== "innings2" || !innings[0]) return;
-    const nextBatting = innings[0].bowlingTeam;
-    const nextBowling = innings[0].battingTeam;
-    setSecondSetup((current) => ({
-      striker: current.striker || teams[nextBatting]?.players?.[0] || "",
-      nonStriker: current.nonStriker || teams[nextBatting]?.players?.[1] || "",
-      bowler: current.bowler || teams[nextBowling]?.players?.[0] || "",
-      ballType: current.ballType || "pace"
-    }));
-  }, [state.status, innings, teams]);
+  const hasStartedStage = stageInnings.length > 0;
+  const mainStatus = isSuper ? currentStage.status : state.status;
+  const isLive = mainStatus === "live";
+
   const dismissedPlayers = useMemo(() => unique((currentInn?.deliveries || []).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed)), [currentInn]);
   const remainingPlayers = useMemo(() => activeBattingPlayers.filter((p) => !dismissedPlayers.includes(p)), [activeBattingPlayers, dismissedPlayers]);
-  const soloBatter = state.status === "live" && score.wickets >= MAX_WICKETS - 1 && remainingPlayers.length <= 1;
-  const previousBowler = state.live.previousBowler || "";
+  const soloBatter = isLive && score.wickets >= maxWickets - 1 && remainingPlayers.length <= 1;
+  const retiredHurt = unique(currentStage?.live?.retiredHurt || (isSuper ? [] : state?.live?.retiredHurt || []));
+  const canReturnHurt = retiredHurt.length > 0 && score.wickets >= 2;
 
-  const pushResult = (result, message) => {
-    setHistory((h) => [...h, result.previous].slice(-40));
+  useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(""), 1600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+  useEffect(() => {
+    if (!canReturnHurt || returnOpen || !isLive) return;
+    setReturnPlayer(retiredHurt[0] || "");
+    setReturnOpen(true);
+  }, [canReturnHurt, returnOpen, isLive, retiredHurt]);
+
+  const stageDataForWrite = (nextStage) => ({
+    ...nextStage,
+    innings: (nextStage.innings || []).map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) }))
+  });
+
+  const pushResult = (result, message = "") => {
+    if (!result) return null;
+    setHistory((old) => [...old, result.previous].slice(-40));
     setState(result.next);
     if (message) setToast(message);
     return result.next;
   };
 
-  const startFirstInnings = async () => {
-    if (!setup.tossWinner || !setup.tossDecision || !setup.striker || !setup.nonStriker || !setup.bowler) {
-      setToast("Complete the toss and opening-player setup first");
-      return;
+  const ensureSuperStage = async () => {
+    if (!isSuper || rootSuperOvers[superOverIndex - 1]) return rootSuperOvers[superOverIndex - 1] || currentStage;
+    const prior = superOverIndex === 1 ? {
+      innings: state.innings || [],
+      result: state.result || null
+    } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1);
+    const priorResult = prior.result || stageResult(prior);
+    if (priorResult?.winner !== "tie") {
+      setToast("A Super Over can only begin after the previous stage is tied");
+      return null;
     }
+    const previousSecond = prior.innings?.[1]?.battingTeam || "";
+    const previousFirst = prior.innings?.[0]?.battingTeam || "";
+    if (!previousSecond || !previousFirst) {
+      setToast("The previous tied stage must be complete before starting a Super Over");
+      return null;
+    }
+    const stage = emptyStage(superOverIndex);
+    stage.status = "upcoming";
+    stage.innings = [];
+    const result = await commitMatchUpdate(matchId, (current) => ({
+      ...current,
+      superOvers: [...(current.superOvers || []), { ...stage, battingFirst: previousSecond, bowlingFirst: previousFirst }]
+    }), { requireLiveStart: false });
+    pushResult(result, `Super Over ${superOverIndex} is ready`);
+    return stage;
+  };
 
+  useEffect(() => {
+    if (isSuper && !rootSuperOvers[superOverIndex - 1] && state.result?.winner === "tie") {
+      void ensureSuperStage();
+    }
+  }, [isSuper, superOverIndex, rootSuperOvers.length, state.result?.winner]);
+
+  const saveStage = (stage) => {
+    if (!isSuper) {
+      const result = patchMatch(matchId, (current) => ({ ...current, ...stage, innings: stage.innings, live: stage.live, result: stage.result, status: stage.status }));
+      return pushResult(result);
+    }
+    const result = patchMatch(matchId, (current) => {
+      const overs = [...(current.superOvers || [])];
+      const next = stageDataForWrite(stage);
+      overs[superOverIndex - 1] = next;
+      return { ...current, superOvers: overs };
+    });
+    return pushResult(result);
+  };
+
+  const startMainFirstInnings = async (setup) => {
     const batting = setup.batting;
     const bowling = batting === fixture.t1 ? fixture.t2 : fixture.t1;
-    const tossWinner = setup.tossWinner;
-    const tossDecision = setup.tossDecision;
-
     try {
       const result = await commitMatchUpdate(matchId, {
         status: "live",
-        toss: { winner: tossWinner, decision: tossDecision, batting, bowling },
-        innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [] }],
-        live: {
-          striker: setup.striker,
-          nonStriker: setup.nonStriker,
-          bowler: setup.bowler,
-          previousBowler: "",
-          freeHit: false,
-          ballType: setup.ballType
-        },
-        result: null
+        toss: { winner: setup.tossWinner, decision: setup.tossDecision, batting, bowling },
+        innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [], maxOvers: MAX_OVERS, maxWickets: MAX_WICKETS }],
+        live: { ...emptyLive(), striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler },
+        result: null,
+        finalResult: null,
+        superOvers: []
       }, { requireLiveStart: true });
-
       pushResult(result, "Match started — first innings is live");
     } catch (error) {
       console.error(error);
@@ -158,135 +261,215 @@ function ScorerDesk({ matchId, fixture }) {
     }
   };
 
-  const startSecondInnings = () => {
-    const first = state.innings[0];
+  const startSecondInnings = (setup) => {
+    const first = state.innings?.[0];
+    if (!first) return;
     const nextBatting = first.bowlingTeam;
     const nextBowling = first.battingTeam;
-    const striker = secondSetup.striker || teams[nextBatting]?.players?.[0] || "";
-    const nonStriker = secondSetup.nonStriker || teams[nextBatting]?.players?.[1] || "";
-    const bowler = secondSetup.bowler || teams[nextBowling]?.players?.[0] || "";
-    pushResult(patchMatch(matchId, (current) => ({
+    const result = patchMatch(matchId, (current) => ({
       ...current,
       status: "live",
-      innings: [...current.innings, { battingTeam: nextBatting, bowlingTeam: nextBowling, deliveries: [] }],
-      live: {
-        striker,
-        nonStriker,
-        bowler,
-        previousBowler: "",
-        freeHit: false,
-        ballType: secondSetup.ballType || "pace"
-      }
-    })), "Second innings started");
+      innings: [...current.innings, { battingTeam: nextBatting, bowlingTeam: nextBowling, deliveries: [], maxOvers: MAX_OVERS, maxWickets: MAX_WICKETS }],
+      live: { ...emptyLive(), striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler }
+    }));
+    pushResult(result, "Second innings started");
+  };
+
+  const startSuperFirstInnings = (setup) => {
+    const stage = rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex);
+    const prior = superOverIndex === 1 ? { innings: state.innings || [], result: state.result || null } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1);
+    const priorResult = prior.result || stageResult(prior);
+    if (priorResult?.winner !== "tie") {
+      setToast("This Super Over is only available after a tied stage");
+      return;
+    }
+    const batting = stage.battingFirst;
+    const bowling = stage.bowlingFirst;
+    if (!batting || !bowling) {
+      setToast("Could not establish Super Over teams from the tied stage");
+      return;
+    }
+    const nextStage = { ...stage, status: "live", innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [], maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS }], live: { ...emptyLive(), striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler }, result: null };
+    saveStage(nextStage);
+    setToast(`Super Over ${superOverIndex} is live`);
+  };
+
+  const startSuperSecondInnings = (setup) => {
+    const stage = rootSuperOvers[superOverIndex - 1];
+    if (!stage?.innings?.[0]) return;
+    const first = stage.innings[0];
+    const nextStage = {
+      ...stage,
+      status: "live",
+      innings: [...stage.innings, { battingTeam: first.bowlingTeam, bowlingTeam: first.battingTeam, deliveries: [], maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS }],
+      live: { ...emptyLive(), striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler }
+    };
+    saveStage(nextStage);
+    setToast(`Super Over ${superOverIndex} second innings is live`);
   };
 
   const addDelivery = (runs, opts = {}) => {
-    if (!currentInn || state.status !== "live") return;
+    if (!currentInn || !isLive) return;
     const { wide = false, noBall = false, wicket = false, retired = false, wicketData = {} } = opts;
-    const isRetireEvent = retired || ["Retired Hurt", "Retired Out"].includes(wicketData.type);
-    if (!state.live.striker || !state.live.bowler) return setToast("Choose a striker and bowler");
-    if (!soloBatter && !state.live.nonStriker) return setToast("Choose the non-striker");
-    if (wicket && state.live.freeHit && wicketData.type !== "Run Out") return setToast("Only a run-out can be recorded on a free hit");
+    const isRetireEvent = Boolean(retired);
+    if (!currentStage.live.striker || !currentStage.live.bowler) return setToast("Choose a striker and bowler");
+    if (!soloBatter && !currentStage.live.nonStriker) return setToast("Choose the non-striker");
+    if (wicket && currentStage.live.freeHit && wicketData.type !== "Run Out") return setToast("Only a run-out can be recorded on a free hit");
 
     const legal = !wide && !noBall && !isRetireEvent;
-    const delivery = { striker: state.live.striker, nonStriker: state.live.nonStriker, bowler: isRetireEvent ? "" : state.live.bowler, runs: isRetireEvent ? 0 : runs, wide, noBall, deadBall: isRetireEvent, wicket: wicket && !isRetireEvent, retired: isRetireEvent, wicketType: wicket && !isRetireEvent ? wicketData.type : "", retirementType: isRetireEvent ? wicketData.type : "", dismissed: wicket || isRetireEvent ? wicketData.dismissed : "", fielder: wicketData.fielder || "", outEnd: wicketData.outEnd || "", dismissalText: wicket || isRetireEvent ? wicketData.text : "", ballType: state.live.ballType || "pace" };
+    const delivery = {
+      striker: currentStage.live.striker,
+      nonStriker: currentStage.live.nonStriker,
+      bowler: isRetireEvent ? "" : currentStage.live.bowler,
+      runs: isRetireEvent ? 0 : runs,
+      wide,
+      noBall,
+      deadBall: isRetireEvent,
+      wicket: wicket && !isRetireEvent,
+      retired: isRetireEvent,
+      wicketType: wicket && !isRetireEvent ? wicketData.type : "",
+      retirementType: isRetireEvent ? wicketData.type : "",
+      dismissed: wicket || isRetireEvent ? wicketData.dismissed : "",
+      fielder: wicketData.fielder || "",
+      outEnd: wicketData.outEnd || "",
+      dismissalText: wicket || isRetireEvent ? wicketData.text : "",
+      ballType: currentStage.live.ballType || "pace"
+    };
 
-    let nextIncomingSlot = "";
-    let incomingCandidates = [];
+    let incomingSlot = "";
     const result = patchMatch(matchId, (current) => {
-      const inn = current.innings.at(-1);
+      const stage = isSuper ? normaliseStage(current.superOvers?.[superOverIndex - 1], superOverIndex) : {
+        status: current.status,
+        innings: Array.isArray(current.innings) ? current.innings : [],
+        live: current.live || emptyLive(),
+        result: current.result
+      };
+      const inn = stage.innings.at(-1);
       const deliveries = [...deliveryList(inn?.deliveries), delivery];
-      const nextScore = computeInnings(deliveries);
-      const players = teams[inn.battingTeam].players;
+      const nextScore = computeInnings(deliveries, { maxOvers, maxWickets });
+      const players = teams[inn.battingTeam]?.players || [];
       const dismissed = unique(deliveries.filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));
       const remaining = players.filter((p) => !dismissed.includes(p));
-      const wasSolo = !current.live.nonStriker;
-      const twoBattersBefore = Boolean(current.live.striker && current.live.nonStriker);
-      let striker = current.live.striker;
-      let nonStriker = current.live.nonStriker;
-      let bowler = current.live.bowler;
+      let striker = stage.live.striker;
+      let nonStriker = stage.live.nonStriker;
+      let bowler = stage.live.bowler;
       const overEnded = legal && nextScore.legal > 0 && nextScore.legal % 6 === 0;
       const isRunOut = wicket && wicketData.type === "Run Out";
-      const isRetirement = isRetireEvent;
+      const isRetiredHurt = isRetireEvent && wicketData.type === "Retired Hurt";
+      const isRetiredOut = isRetireEvent && wicketData.type === "Retired Out";
 
-      if (!wasSolo && twoBattersBefore && !wicket && !isRetirement && !wide && !noBall && runs % 2 === 1) [striker, nonStriker] = [nonStriker, striker];
+      if (!wicket && !isRetireEvent && !wide && !noBall && striker && nonStriker && runs % 2 === 1) [striker, nonStriker] = [nonStriker, striker];
 
-      if (isRunOut) {
-        const dismissed = wicketData.dismissed;
-        const survivor = dismissed === current.live.striker ? current.live.nonStriker : current.live.striker;
-        const outEnd = wicketData.outEnd || (dismissed === current.live.striker ? "striker" : "nonStriker");
-        if (remaining.length <= 1) {
-          striker = remaining[0] || survivor;
-          nonStriker = "";
-          nextIncomingSlot = "solo";
-        } else {
-          striker = outEnd === "striker" ? "" : survivor;
-          nonStriker = outEnd === "nonStriker" ? "" : survivor;
-          nextIncomingSlot = outEnd;
+      if (isRunOut || isRetiredOut || isRetiredHurt) {
+        const dismissedName = wicketData.dismissed;
+        const survivor = dismissedName === stage.live.striker ? stage.live.nonStriker : stage.live.striker;
+        if (dismissedName === stage.live.striker) striker = "";
+        if (dismissedName === stage.live.nonStriker) nonStriker = "";
+        incomingSlot = dismissedName === stage.live.striker ? "striker" : "nonStriker";
+        if (isRunOut) {
+          const outEnd = wicketData.outEnd || (dismissedName === stage.live.striker ? "striker" : "nonStriker");
+          if (remaining.length <= 1) {
+            striker = remaining[0] || survivor;
+            nonStriker = "";
+            incomingSlot = "solo";
+          } else {
+            striker = outEnd === "striker" ? "" : survivor;
+            nonStriker = outEnd === "nonStriker" ? "" : survivor;
+            incomingSlot = outEnd;
+          }
         }
-      } else if (isRetirement) {
-        const dismissed = wicketData.dismissed;
-        if (dismissed === current.live.striker) striker = ""; else if (dismissed === current.live.nonStriker) nonStriker = "";
-        nextIncomingSlot = dismissed === current.live.striker ? "striker" : "nonStriker";
       } else if (wicket) {
-        const dismissed = wicketData.dismissed;
-        if (remaining.length <= 1 || nextScore.wickets >= MAX_WICKETS - 1) {
+        const dismissedName = wicketData.dismissed;
+        const slot = dismissedName === stage.live.striker ? "striker" : "nonStriker";
+        if (slot === "striker") striker = ""; else nonStriker = "";
+        if (remaining.length <= 1 || nextScore.wickets >= maxWickets - 1) {
           striker = remaining[0] || "";
           nonStriker = "";
-          nextIncomingSlot = "solo";
+          incomingSlot = "solo";
         } else {
-          const slot = dismissed === current.live.striker ? "striker" : "nonStriker";
-          if (slot === "striker") striker = ""; else nonStriker = "";
-          nextIncomingSlot = slot;
+          incomingSlot = slot;
         }
       }
 
       if (overEnded) {
-        if (remaining.length <= 1 || nextScore.wickets >= MAX_WICKETS - 1) {
+        if (remaining.length <= 1 || nextScore.wickets >= maxWickets - 1) {
           striker = remaining[0] || striker;
           nonStriker = "";
-        } else if (striker && nonStriker && !wicket && !isRetirement) {
+        } else if (striker && nonStriker && !wicket && !isRetireEvent) {
           [striker, nonStriker] = [nonStriker, striker];
         }
         bowler = "";
       }
 
-      const targetReached = current.innings.length === 2 && target != null && nextScore.runs >= target;
-      const inningsDone = nextScore.wickets >= MAX_WICKETS || nextScore.legal >= MAX_OVERS * 6 || targetReached;
-      const nextInnings = [...current.innings];
+      const targetReached = stage.innings.length === 2 && target != null && nextScore.runs >= target;
+      const inningsDone = nextScore.wickets >= maxWickets || nextScore.legal >= maxOvers * 6 || targetReached;
+      const nextInnings = [...stage.innings];
       nextInnings[nextInnings.length - 1] = { ...inn, deliveries };
-      if (inningsDone && nextInnings.length === 1) return { ...current, status: "innings2", innings: nextInnings, live: emptyLive() };
+      const hurtList = unique([...(stage.live.retiredHurt || [])]);
+      if (isRetiredHurt && dismissedNameExists(wicketData.dismissed)) hurtList.push(wicketData.dismissed);
+      const live = { ...stage.live, striker, nonStriker, bowler, previousBowler: overEnded ? stage.live.bowler : stage.live.previousBowler, freeHit: isRetireEvent ? stage.live.freeHit : (noBall ? true : (legal ? false : stage.live.freeHit)), retiredHurt: unique(hurtList) };
+
+      if (inningsDone && nextInnings.length === 1) return { ...current, ...(isSuper ? { superOvers: replaceStage(current.superOvers, superOverIndex - 1, { ...stage, status: "innings2", innings: nextInnings, live: { ...live, striker: "", nonStriker: "", bowler: "" } }) } : { status: "innings2", innings: nextInnings, live: { ...live, striker: "", nonStriker: "", bowler: "" } }) };
       if (inningsDone && nextInnings.length === 2) {
-        const completed = { ...current, status: "completed", innings: nextInnings, live: emptyLive() };
-        return { ...completed, result: { ...describeResult(completed), t1: completed.innings[0].battingTeam, t2: completed.innings[1].battingTeam, t1Runs: computeInnings(completed.innings[0].deliveries).runs, t2Runs: computeInnings(completed.innings[1].deliveries).runs } };
+        const completedStage = { ...stage, status: "completed", innings: nextInnings, live: { ...live, striker: "", nonStriker: "", bowler: "" } };
+        const resultValue = describeResult(completedStage, { maxOvers, maxWickets });
+        if (isSuper) {
+          const root = { ...current, superOvers: replaceStage(current.superOvers, superOverIndex - 1, { ...completedStage, result: resultValue }) };
+          if (resultValue.winner !== "tie") root.finalResult = { winner: resultValue.winner, stage: superOverIndex, desc: `${resultValue.winner} won Super Over ${superOverIndex}` };
+          return root;
+        }
+        return { ...current, status: "completed", innings: nextInnings, live: emptyLive(), result: { ...resultValue, t1: nextInnings[0].battingTeam, t2: nextInnings[1].battingTeam, t1Runs: computeInnings(nextInnings[0].deliveries).runs, t2Runs: computeInnings(nextInnings[1].deliveries).runs } };
       }
-      if ((wicket || isRetirement) && nextIncomingSlot && nextIncomingSlot !== "solo") incomingCandidates = players.filter((p) => p !== wicketData.dismissed && p !== striker && p !== nonStriker && !dismissed.includes(p));
-      return { ...current, innings: nextInnings, live: { ...current.live, striker, nonStriker, bowler, previousBowler: overEnded ? current.live.bowler : current.live.previousBowler, freeHit: isRetireEvent ? current.live.freeHit : (noBall ? true : (legal ? false : current.live.freeHit)) } };
+      const updatedStage = { ...stage, status: "live", innings: nextInnings, live };
+      return isSuper ? { ...current, superOvers: replaceStage(current.superOvers, superOverIndex - 1, updatedStage) } : { ...current, innings: nextInnings, live, status: "live" };
     });
 
-    pushResult(result, "");
-    if (nextIncomingSlot === "solo" && result.next.status === "live") {
-      setToast(`${result.next.live.striker || "Last batter"} is now the sole striker`);
-      setWicketOpen(false);
+    pushResult(result);
+    const resultingStage = isSuper ? normaliseStage(result.next.superOvers?.[superOverIndex - 1], superOverIndex) : { ...result.next, innings: result.next.innings || [] };
+    const resultingInn = resultingStage.innings?.at(-1);
+    const resultingScore = resultingInn ? computeInnings(deliveryList(resultingInn.deliveries), { maxOvers, maxWickets }) : score;
+    const resultingHurt = unique(resultingStage.live?.retiredHurt || []);
+
+    if (resultingStage.status === "innings2") {
       setNewBatsmanOpen(false);
-    } else if ((wicket || isRetireEvent) && nextIncomingSlot && result.next.status === "live") {
-      const liveDismissed = result.next.innings.at(-1)?.deliveries?.filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed) || [];
-      const available = unique(incomingCandidates.length ? incomingCandidates : activeBattingPlayers.filter((p) => p !== wicketData.dismissed && !liveDismissed.includes(p)));
+      setWicketOpen(false);
+      setToast("First innings complete");
+      return;
+    }
+    if (resultingStage.status === "completed") {
+      setNewBatsmanOpen(false);
+      setWicketOpen(false);
+      setToast(resultingStage.result?.winner === "tie" ? "Stage tied" : `${resultingStage.result?.winner} wins`);
+      return;
+    }
+
+    if (incomingSlot === "solo") {
+      setToast(`${resultingStage.live?.striker || "Last batter"} is now the sole striker`);
+      return;
+    }
+    if ((wicket || retired) && incomingSlot && resultingStage.live?.[incomingSlot] === "") {
+      const available = activeBattingPlayers.filter((p) => p !== wicketData.dismissed && !dismissedPlayers.includes(p));
       setNewBatsman(available[0] || "");
-      setNewBatsmanSlot(nextIncomingSlot);
+      setNewBatsmanSlot(incomingSlot);
       setNewBatsmanExcluded(wicketData.dismissed);
       setNewBatsmanOpen(true);
-      setToast(isRetireEvent ? "Retirement recorded" : isRunOut ? "Run out recorded" : "Wicket recorded");
+      setToast(retired ? (wicketData.type === "Retired Hurt" ? "Retired hurt — no wicket" : "Retired out — wicket recorded") : (isRunOutText(wicketData.type) ? "Run out recorded" : "Wicket recorded"));
     } else if (wide) setToast("WIDE");
     else if (noBall) setToast("NO BALL");
     else if (runs === 6) setToast("SIX");
     else if (runs === 4) setToast("FOUR");
+
+    if (resultingScore.wickets >= 2 && resultingHurt.length) {
+      setReturnPlayer(resultingHurt[0]);
+      setReturnOpen(true);
+    }
   };
 
   const openWicketModal = (event) => {
-    const selected = state.live.striker || state.live.nonStriker;
+    if (!isLive) return;
+    const selected = currentStage.live.striker || currentStage.live.nonStriker;
     if (!selected) return setToast("No current batter to dismiss");
-    if (!state.live.bowler) return setToast("Select a bowler before recording a wicket");
+    if (!currentStage.live.bowler) return setToast("Select a bowler before recording a wicket");
     setWicketDraft({ dismissed: selected, type: "Bowled", outEnd: "striker", fielder: "" });
     setWicketOrigin(originFromEvent(event));
     setWicketOpen(true);
@@ -294,171 +477,215 @@ function ScorerDesk({ matchId, fixture }) {
 
   const submitWicket = () => {
     const dismissed = wicketDraft.dismissed;
-    if (!dismissed || ![state.live.striker, state.live.nonStriker].filter(Boolean).includes(dismissed)) return setToast("Choose a current batter");
-    const retirement = ["Retired Hurt", "Retired Out"].includes(wicketDraft.type);
+    if (!dismissed || ![currentStage.live.striker, currentStage.live.nonStriker].filter(Boolean).includes(dismissed)) return setToast("Choose a current batter");
     const fielder = wicketDraft.fielder;
     const text = `${wicketDraft.type}${fielder ? `, ${fielder}` : ""}`;
     setWicketOpen(false);
-    addDelivery(0, { wicket: !retirement, retired: retirement, wicketData: { type: wicketDraft.type, dismissed, fielder, outEnd: wicketDraft.type === "Run Out" ? wicketDraft.outEnd : dismissed === state.live.striker ? "striker" : "nonStriker", text } });
-    setWicketDraft({ dismissed: "", type: "Bowled", outEnd: "striker", fielder: "" });
+    addDelivery(0, { wicket: true, wicketData: { ...wicketDraft, dismissed, fielder, outEnd: wicketDraft.type === "Run Out" ? wicketDraft.outEnd : dismissed === currentStage.live.striker ? "striker" : "nonStriker", text } });
   };
 
-  const getIncomingChoices = () => unique(activeBattingPlayers.filter((p) => p !== state.live.striker && p !== state.live.nonStriker && p !== newBatsmanExcluded && !dismissedPlayers.includes(p)));
-
-  const skipNewBatsman = () => {
-    setNewBatsmanOpen(false);
-    setNewBatsman("");
-    setNewBatsmanSlot("");
-    setNewBatsmanExcluded("");
-    setToast("No replacement selected");
+  const openRetirement = (type, event) => {
+    if (!isLive) return;
+    const candidates = [currentStage.live.striker, currentStage.live.nonStriker].filter(Boolean);
+    if (!candidates.length) return setToast("No current batter is available");
+    setRetirementType(type);
+    setRetirementPlayer(candidates[0]);
+    setRetirementOrigin(originFromEvent(event));
+    setRetirementOpen(true);
   };
 
+  const submitRetirement = () => {
+    if (!retirementPlayer) return setToast("Choose a batter");
+    setRetirementOpen(false);
+    addDelivery(0, { retired: true, wicketData: { type: retirementType, dismissed: retirementPlayer, text: retirementType } });
+  };
+
+  const getIncomingChoices = () => unique(activeBattingPlayers.filter((p) => p !== currentStage.live.striker && p !== currentStage.live.nonStriker && p !== newBatsmanExcluded && !dismissedPlayers.includes(p)));
   const confirmNewBatsman = () => {
     const choices = getIncomingChoices();
-    if (!choices.length) return skipNewBatsman();
     if (!newBatsman || !choices.includes(newBatsman)) return setToast("Choose the incoming batter");
-    const slot = newBatsmanSlot;
-    const chosen = newBatsman;
-    const result = patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, [slot]: chosen } }));
-    setHistory((h) => [...h, result.previous].slice(-40));
-    setState(result.next);
-    setNewBatsmanOpen(false);
-    setNewBatsman("");
-    setNewBatsmanSlot("");
-    setNewBatsmanExcluded("");
-    setToast(`${chosen} comes in`);
+    const result = isSuper
+      ? patchMatch(matchId, (current) => {
+          const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex);
+          stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, [newBatsmanSlot]: newBatsman } }; return { ...current, superOvers: stages };
+        })
+      : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, [newBatsmanSlot]: newBatsman } }));
+    pushResult(result, `${newBatsman} comes in`);
+    setNewBatsmanOpen(false); setNewBatsman(""); setNewBatsmanSlot(""); setNewBatsmanExcluded("");
   };
 
   const selectBowler = (name) => {
-    if (!name || name === previousBowler) return setToast("That bowler just bowled the current over");
-    const result = patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, bowler: name } }));
-    setHistory((h) => [...h, result.previous].slice(-40));
-    setState(result.next);
-    setBowlerOpen(false);
-    setToast(`${name} starts the new over`);
+    if (!name || name === currentStage.live.previousBowler) return setToast("That bowler just bowled the current over");
+    const result = isSuper
+      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, bowler: name } }; return { ...current, superOvers: stages }; })
+      : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, bowler: name } }));
+    pushResult(result, `${name} starts the new over`); setBowlerOpen(false);
+  };
+
+  const bringBackHurt = () => {
+    const candidate = returnPlayer || retiredHurt[0];
+    if (!candidate || !retiredHurt.includes(candidate)) return setToast("Choose a retired-hurt player");
+    const slot = currentStage.live.striker ? (currentStage.live.nonStriker ? "striker" : "nonStriker") : "striker";
+    const result = isSuper
+      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, [slot]: candidate, retiredHurt: stage.live.retiredHurt.filter((p) => p !== candidate) } }; return { ...current, superOvers: stages }; })
+      : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, [slot]: candidate, retiredHurt: (current.live?.retiredHurt || []).filter((p) => p !== candidate) } }));
+    pushResult(result, `${candidate} returns from retired hurt`); setReturnOpen(false); setReturnPlayer("");
+  };
+
+  const endInningsFromHurt = () => {
+    const result = patchMatch(matchId, (current) => {
+      if (isSuper) {
+        const stages = [...(current.superOvers || [])];
+        const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex);
+        if (stage.innings.length < 2) {
+          stages[superOverIndex - 1] = { ...stage, status: "innings2", live: { ...stage.live, striker: "", nonStriker: "", bowler: "" } };
+          return { ...current, superOvers: stages };
+        }
+        const completed = { ...stage, status: "completed", live: emptyLive() };
+        const resultValue = describeResult(completed, { maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS });
+        stages[superOverIndex - 1] = { ...completed, result: resultValue };
+        return { ...current, superOvers: stages, ...(resultValue.winner !== "tie" ? { finalResult: { winner: resultValue.winner, stage: superOverIndex, desc: `${resultValue.winner} won Super Over ${superOverIndex}` } } : {}) };
+      }
+      if ((current.innings || []).length < 2) {
+        return { ...current, status: "innings2", live: { ...(current.live || emptyLive()), striker: "", nonStriker: "", bowler: "" } };
+      }
+      const completed = { ...current, status: "completed", live: emptyLive() };
+      const resultValue = describeResult(completed, { maxOvers: MAX_OVERS, maxWickets: MAX_WICKETS });
+      return { ...completed, result: resultValue };
+    });
+    pushResult(result, "Innings ended"); setReturnOpen(false);
   };
 
   const undo = () => {
     const previous = history.at(-1);
     if (!previous) return setToast("Nothing to undo");
     const result = patchMatch(matchId, previous);
-    setState(clone(result.next));
-    setHistory((h) => h.slice(0, -1));
-    setWicketOpen(false); setNewBatsmanOpen(false); setBowlerOpen(false); setToast("Last action undone");
+    setState(clone(result.next)); setHistory((h) => h.slice(0, -1)); setWicketOpen(false); setNewBatsmanOpen(false); setBowlerOpen(false); setReturnOpen(false); setToast("Last action undone");
   };
 
   const reset = () => {
     if (!window.confirm(`Reset ${fixture.label}?`)) return;
-    const result = patchMatch(matchId, () => ({ status: "upcoming", innings: [], live: emptyLive(), result: null, toss: null }));
-    setState(result.next); setHistory([]); setWicketOpen(false); setNewBatsmanOpen(false); setBowlerOpen(false); setToast("Demo reset");
+    const result = patchMatch(matchId, () => ({ status: "upcoming", innings: [], live: emptyLive(), result: null, finalResult: null, toss: null, superOvers: [] }));
+    setState(result.next); setHistory([]); setToast("Match reset");
   };
 
-  return <SiteFrame active="matches"><main className="section-wrap page-section scorer-page">
-    <div className="scorer-topline"><a className="back-button" href={matchPath(matchId)}>← Viewer</a><div className="scorer-title"><span>{fixture.label} / OFFICIALS</span><ComicTitle>The <i>DRAFTS</i> / Scorer</ComicTitle></div><div className="scorer-actions"><button className="small-control blue-control undo-button" onClick={undo} disabled={!history.length}>Undo {history.length}</button><button className="small-control red-control undo-button reset-action" onClick={reset}>Reset</button></div></div>
-    <div className="scoreboard-hero comic-panel dark-panel"><div className="scoreboard-team"><TeamBadge code={currentInn?.battingTeam || fixture.t1} large teams={teams} /><small>Batting</small></div><div className="score-main"><span className={`score-state state-${state.status}`}>{state.status}</span><strong>{score.runs}<em>/<WicketCount wickets={score.wickets} deliveries={currentInn?.deliveries || []} /></em></strong><span>{score.overs}.{score.balls} / {MAX_OVERS} overs {target ? `· target ${target}` : ""}</span></div><div className="scoreboard-team"><TeamBadge code={currentInn?.bowlingTeam || fixture.t2} large teams={teams} /><small>Bowling</small></div></div>
+  const currentResult = isSuper ? stageResult(currentStage) : state.result;
+  const allStages = [
+    { label: "MAIN MATCH", innings: Array.isArray(state.innings) ? state.innings : [], result: state.result },
+    ...rootSuperOvers.map((stage, index) => ({ label: `SUPER OVER ${index + 1}`, innings: stage.innings || [], result: stage.result || stageResult(stage) }))
+  ];
+  const nextSuperIndex = isSuper ? superOverIndex + 1 : 1;
+  const tiedStage = currentResult?.winner === "tie";
+  const winnerText = state.finalResult?.winner || (currentResult?.winner && currentResult.winner !== "tie" ? currentResult.winner : null);
 
-    {effectiveStatus === "upcoming" && <Setup fixture={fixture} teams={teams} setup={setup} setSetup={setSetup} onStart={startFirstInnings} />}
-    {effectiveStatus === "innings2" && firstScore && <section className="innings-break comic-panel paper-panel"><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{fixture.t1 === innings[0]?.battingTeam ? fixture.t2 : fixture.t1} is chasing.</ComicTitle><p>First innings finished at {firstScore.runs}/{firstScore.wickets}. Set the opening players for the chase.</p></div><SecondInningsSetup battingTeam={innings[0].bowlingTeam} bowlingTeam={innings[0].battingTeam} teams={teams} setup={secondSetup} setSetup={setSecondSetup} onStart={startSecondInnings} isDraftMatch={fixture.internal} /></section>}
+  const setupModel = { teams, fixture, isSuper, currentStage, state, superOverIndex, startMainFirstInnings, startSecondInnings, startSuperFirstInnings, startSuperSecondInnings };
 
-    {effectiveStatus === "live" && currentInn && <>
-      <section className="comic-panel dark-panel active-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE CONTROL</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle></div><span className="live-chip"><i /> LIVE</span></div>
-        <div className="player-strip"><div className="player-box active-player"><span>STRIKER</span><b>{state.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box"><span>NON-STRIKER</span><b>{state.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box"><span>BOWLER</span><b>{state.live.bowler || "New over"}</b></div></div>
-        {!state.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
-        <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!state.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!state.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!state.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!state.live.bowler} onClick={openWicketModal}>WICKET</button></div>
-        <div className="scoring-tools"><button className="tool-button wicket-tool" disabled={!state.live.bowler} onClick={openWicketModal}>Record wicket / retirement</button><span>Free hit: <b>{state.live.freeHit ? "ON" : "OFF"}</b></span><span>{score.legal} legal balls</span></div>
+  return <SiteFrame active="matches"><main className="section-wrap page-section scorer-page match-experience-page">
+    <div className="scorer-topline"><a className="back-button" href={matchPath(matchId)}>← Viewer</a><div className="scorer-title"><span>{fixture.label} / {isSuper ? `SUPER OVER ${superOverIndex}` : "OFFICIALS"}</span><ComicTitle>The <i>DRAFTS</i> / Scorer</ComicTitle></div><div className="scorer-actions"><button className="small-control blue-control undo-button" onClick={undo} disabled={!history.length}>Undo {history.length}</button><button className="small-control red-control undo-button reset-action" onClick={reset}>Reset</button></div></div>
+
+    <div className="scoreboard-hero comic-panel dark-panel"><div className="scoreboard-team"><span className="compact-bat-icon" aria-hidden="true">▱</span><TeamBadge code={currentInn?.battingTeam || (isSuper ? currentStage.battingFirst : fixture.t1)} large teams={teams} /><small>Batting</small></div><div className="score-main"><span className="score-state state-live">LIVE</span><strong>{score.runs}<em>/<WicketCount wickets={score.wickets} deliveries={currentInn?.deliveries || []} retiredHurt={retiredHurt} /></em></strong><span>{score.overs}.{score.balls} / {maxOvers} over{maxOvers === 1 ? "" : "s"} {target ? `· target ${target}` : ""}</span></div><div className="scoreboard-team"><TeamBadge code={currentInn?.bowlingTeam || (isSuper ? currentStage.bowlingFirst : fixture.t2)} large teams={teams} /><small>Bowling</small></div></div>
+
+    {!isSuper && state.status === "upcoming" && <Setup fixture={fixture} teams={teams} setupModel={setupModel} />}
+    {!isSuper && state.status === "innings2" && firstScore && <SecondInningsSetup battingTeam={state.innings[0].bowlingTeam} bowlingTeam={state.innings[0].battingTeam} teams={teams} onStart={(setup) => startSecondInnings(setup)} />}
+    {isSuper && !hasStartedStage && <SuperOverSetup teams={teams} stage={currentStage} onStart={(setup) => startSuperFirstInnings(setup)} />}
+    {isSuper && currentStage.status === "innings2" && firstScore && <SecondInningsSetup battingTeam={stageInnings[0].bowlingTeam} bowlingTeam={stageInnings[0].battingTeam} teams={teams} onStart={(setup) => startSuperSecondInnings(setup)} />}
+
+    {isLive && currentInn && <>
+      <section className="comic-panel dark-panel active-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} / LIVE CONTROL` : "LIVE CONTROL"}</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle></div><span className="live-chip"><i /> LIVE</span></div>
+        <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="compact-over-strip"><span>OV {score.overs}.{score.balls}</span><span>{score.legal} legal</span><span>{currentStage.live.freeHit ? "FREE HIT" : "LEGAL BALL"}</span></div></div>
+        {!currentStage.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
+        <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!currentStage.live.bowler} onClick={openWicketModal}>WICKET</button></div>
+        <div className="retirement-actions"><button className="retirement-action retirement-hurt-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Hurt", e)}>RETIRED HURT</button><button className="retirement-action retirement-out-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Out", e)}>RETIRED OUT</button></div>
+        <div className="scoring-tools"><span>Free hit: <b>{currentStage.live.freeHit ? "ON" : "OFF"}</b></span><span>{score.legal} legal balls</span></div>
       </section>
-      <section className="scorer-lower"><article className="comic-panel paper-panel commentary-panel"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Expand ↗</button></div><Commentary deliveries={currentInn.deliveries} limit={6} /></article><article className="comic-panel paper-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE FIGURES</span><ComicTitle as="h2">Scorecard</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>Open ↗</button></div><Scorecard innings={innings} /></article></section>
-      <PlayerStats state={state} teamCodes={[fixture.t1, fixture.t2]} teams={teams} mode="scorer" />
+      <section className="scorer-lower"><article className="comic-panel paper-panel commentary-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={() => { setCommentaryOpen(true); }}>Expand ↗</button></div><div className="compact-secondary-row"><span className="compact-secondary-row__title">COMMENTARY</span><button className="expand-button viewer-family" onClick={() => setCommentaryOpen(true)}>Expand ↗</button></div></article><article className="comic-panel paper-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">LIVE FIGURES</span><ComicTitle as="h2">Scorecard</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); }}>Open ↗</button></div><div className="compact-secondary-row"><span className="compact-secondary-row__title">SCORECARD</span><button className="expand-button scorecard-family" onClick={(e) => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); }}>Open ↗</button></div></article></section>
+      <PlayerStats state={{ ...state, innings: stageInnings, superOvers: isSuper ? [] : state.superOvers }} teamCodes={[fixture.t1, fixture.t2]} teams={teams} mode="scorer" />
     </>}
 
-    {effectiveStatus === "completed" && <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">MATCH COMPLETE</span><ComicTitle as="h2">{state.result?.winner === "tie" ? "Match tied" : `${state.result?.winner} wins`}</ComicTitle><p>{state.result?.desc}</p><div className="result-scores">{inningsCards.map((inn) => <div key={`result-${inn.index}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{inn.score.runs}/{inn.score.wickets}</strong><span>({inn.score.overs}.{inn.score.balls})</span></div>)}</div><button className="central-scorecard-button" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>VIEW SCORECARD ↗</button></section>}
+    {currentStage.status === "completed" || (!isSuper && state.status === "completed") ? <ResultPanel fixture={fixture} teams={teams} matchId={matchId} state={state} isSuper={isSuper} superOverIndex={superOverIndex} stage={currentStage} allStages={allStages} winnerText={winnerText} tiedStage={tiedStage} nextSuperIndex={nextSuperIndex} onScorecard={() => { setScorecardOrigin(null); setScorecardOpen(true); }} /> : null}
 
-    <div className="scorer-footer"><a className="comic-button secondary" href={matchPath(matchId)}>Public viewer ↗</a><button className="comic-button tertiary" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Open commentary ↗</button></div>
+    <div className="scorer-footer"><a className="comic-button secondary" href={matchPath(matchId)}>Public viewer ↗</a><button className="comic-button tertiary" onClick={() => setCommentaryOpen(true)}>Open commentary ↗</button></div>
 
-    {wicketOpen && <WicketModal origin={wicketOrigin} state={state} battingPlayers={activeBattingPlayers} bowlingPlayers={activeBowlingPlayers} draft={wicketDraft} setDraft={setWicketDraft} onClose={() => setWicketOpen(false)} onSubmit={submitWicket} />}
-    {newBatsmanOpen && <NewBatsmanModal origin={newBatsmanOrigin} battingPlayers={activeBattingPlayers} live={state.live} dismissedPlayers={dismissedPlayers} excluded={newBatsmanExcluded} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => { setNewBatsmanOpen(false); setNewBatsmanSlot(""); setNewBatsmanExcluded(""); }} onSubmit={confirmNewBatsman} onSkip={skipNewBatsman} />}
-    {bowlerOpen && <BowlerModal origin={bowlerOrigin} bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
-    {commentaryOpen && <Modal origin={commentaryOrigin} onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive" morphName="commentary-morph"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
-    {scorecardOpen && <ScorecardModal innings={innings} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} morphName="scorecard-morph" />}
+    {wicketOpen && <WicketModal origin={wicketOrigin} state={{ live: currentStage.live }} battingPlayers={activeBattingPlayers} bowlingPlayers={activeBowlingPlayers} draft={wicketDraft} setDraft={setWicketDraft} onClose={() => setWicketOpen(false)} onSubmit={submitWicket} />}
+    {retirementOpen && <RetirementModal origin={retirementOrigin} type={retirementType} player={retirementPlayer} players={[currentStage.live.striker, currentStage.live.nonStriker].filter(Boolean)} onChange={setRetirementPlayer} onClose={() => setRetirementOpen(false)} onSubmit={submitRetirement} />}
+    {newBatsmanOpen && <NewBatsmanModal battingPlayers={activeBattingPlayers} live={currentStage.live} dismissedPlayers={dismissedPlayers} excluded={newBatsmanExcluded} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => setNewBatsmanOpen(false)} onSubmit={confirmNewBatsman} />}
+    {bowlerOpen && <BowlerModal bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={currentStage.live.previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
+    {returnOpen && <RetiredHurtReturnModal players={retiredHurt} value={returnPlayer} setValue={setReturnPlayer} onBringBack={bringBackHurt} onEnd={endInningsFromHurt} onClose={() => setReturnOpen(false)} />}
+    {commentaryOpen && <Modal onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
+    {scorecardOpen && <ScorecardModal innings={state.innings || []} superOvers={rootSuperOvers} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} />}
     {toast && <div className="toast">{toast}</div>}
   </main></SiteFrame>;
 }
 
-function WicketModal({ origin, state, battingPlayers, bowlingPlayers, draft, setDraft, onClose, onSubmit }) {
-  const isRunOut = draft.type === "Run Out";
-  const showWho = isRunOut;
-  const fielderNeeded = ["Caught", "Run Out", "Stumped"].includes(draft.type);
-  return <Modal origin={origin} onClose={onClose} className="wicket-modal paper-panel" ariaLabel="Dismissal control"><div className="modal-heading"><div><span className="panel-kicker">DISMISSAL CONTROL</span><ComicTitle as="h2">Record the moment</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="modal-scroll-content">
-    <div className={`dismissed-lock ${showWho ? "is-selectable" : ""}`}><span>DISMISSED BATTER</span>{showWho ? <div className="dismissal-player-choice">{[state.live.striker, state.live.nonStriker].filter(Boolean).map((p) => <button key={`dismissed-${p}`} className={`dismissed-option ${draft.dismissed === p ? "selected" : ""}`} onClick={() => setDraft((d) => ({ ...d, dismissed: p }))}>{p}<small>{p === state.live.striker ? "STRIKER" : "NON-STRIKER"}</small></button>)}</div> : <div className="dismissed-fixed"><b>{draft.dismissed || state.live.striker}</b><span>{draft.dismissed === state.live.nonStriker ? "NON-STRIKER" : "STRIKER"} is selected automatically.</span></div>}</div>
-    <label>Event type<select value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value, fielder: "", outEnd: d.outEnd }))}>{DISMISSAL_TYPES.map((t) => <option key={`dismissal-${t}`}>{t}</option>)}</select></label>
-    {isRunOut && <div className="runout-controls"><span className="panel-kicker">RUN OUT / TWO DECISIONS</span><label>Where did the batter get out?<select value={draft.outEnd} onChange={(e) => setDraft((d) => ({ ...d, outEnd: e.target.value }))}><option value="striker">Striker's end</option><option value="nonStriker">Non-striker's end</option></select></label><p>Choose who was dismissed above and independently choose the end where the dismissal occurred. The incoming batter walks in at that end.</p></div>}
-    {fielderNeeded && <label>Fielder<select value={draft.fielder} onChange={(e) => setDraft((d) => ({ ...d, fielder: e.target.value }))}><option value="">Select fielder</option>{unique(bowlingPlayers).map((p) => <option key={`fielder-${p}`}>{p}</option>)}</select></label>}
-    {["Retired Hurt", "Retired Out"].includes(draft.type) && <div className="retirement-note">Retirement events are recorded without a legal ball, bowler run or bowler wicket.</div>}
-  </div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={onSubmit}>Confirm <span>→</span></button></div></Modal>;
+function replaceStage(stages, index, stage) {
+  const next = [...(stages || [])];
+  next[index] = stage;
+  return next;
+}
+function dismissedNameExists(name) { return Boolean(name); }
+function isRunOutText(type) { return type === "Run Out"; }
+
+function Setup({ fixture, teams, setupModel }) {
+  const { setupState, setSetupState } = useSetupState(setupModel.fixture, teams);
+  return <section className="comic-panel paper-panel setup-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">MATCH SETUP</span><ComicTitle as="h2">Set the opening players</ComicTitle></div><span className="format-stamp">3 WICKETS / 6 OVERS</span></div><SetupFields fixture={fixture} teams={teams} setup={setupState} setSetup={setSetupState} /><button className="comic-button primary wide-button" onClick={() => setupModel.startMainFirstInnings(setupState)}>Start Match <span>→</span></button></section>;
 }
 
-function NewBatsmanModal({ origin, battingPlayers, live, dismissedPlayers, excluded, value, setValue, slot, onClose, onSubmit, onSkip }) {
-  const choices = unique(battingPlayers.filter((p) => p !== live.striker && p !== live.nonStriker && p !== excluded && !dismissedPlayers.includes(p)));
-  const noneLeft = choices.length === 0;
-  return <Modal origin={origin} onClose={onClose} className="new-batsman-modal paper-panel" ariaLabel="Next batter">
-    <div className="modal-heading"><div><span className="panel-kicker">NEXT BATTER</span><ComicTitle as="h2">Who walks in?</ComicTitle></div><button className="modal-close-button close-button offline-safe" onClick={onClose}>Close ×</button></div>
-    {noneLeft ? <div className="no-incoming-player"><strong>No eligible batter remains.</strong><p>You can leave this batting slot vacant and continue the match control without selecting a replacement.</p></div> : <><p>The incoming batter enters at the selected end.</p><label>Incoming batter<select value={value} onChange={(e) => setValue(e.target.value)}>{choices.map((p) => <option key={`incoming-${p}`}>{p}</option>)}</select></label></>}
-    <div className="incoming-slot">{slot === "striker" ? "STRIKER'S END" : "NON-STRIKER'S END"}</div>
-    <div className="modal-actions"><button className="back-button viewer-family offline-safe" onClick={onClose}>Cancel</button>{noneLeft ? <button className="comic-button primary" onClick={onSkip}>Do not bring anyone in <span>→</span></button> : <button className="comic-button primary" onClick={onSubmit}>Bring in <span>→</span></button>}</div>
-  </Modal>;
+function useSetupState(fixture, teams) {
+  const battingPlayers = teams[fixture.t1]?.players || [];
+  const bowlingPlayers = teams[fixture.t2]?.players || [];
+  const [setupState, setSetupState] = useState({ batting: fixture.t1, tossWinner: fixture.t1, tossDecision: "bat", striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
+  const updateToss = (winner, decision) => { const batting = decision === "bat" ? winner : (winner === fixture.t1 ? fixture.t2 : fixture.t1); const bowling = batting === fixture.t1 ? fixture.t2 : fixture.t1; setSetupState((s) => ({ ...s, tossWinner: winner, tossDecision: decision, batting, striker: teams[batting]?.players?.[0] || "", nonStriker: teams[batting]?.players?.[1] || "", bowler: teams[bowling]?.players?.[0] || "" })); };
+  return { setupState, setSetupState, updateToss, battingPlayers, bowlingPlayers };
 }
 
-function BowlerModal({ origin, bowlingPlayers, currentInn, previousBowler, onSelect, onClose }) {
-  const score = currentInn ? computeInnings(currentInn.deliveries) : { bowlers: {} };
-  return <Modal origin={origin} onClose={onClose} className="bowler-modal paper-panel" ariaLabel="Select new bowler"><div className="modal-heading"><div><span className="panel-kicker">NEW OVER</span><ComicTitle as="h2">Select new bowler</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><p>The bowler from the previous over is locked. Choose another eligible bowler.</p><div className="bowler-choice-grid">{unique(bowlingPlayers).map((p, index) => { const f = score.bowlers[p] || { balls: 0, runs: 0, wickets: 0 }; const locked = p === previousBowler; const econ = f.balls ? (f.runs / (f.balls / 6)).toFixed(2) : "—"; return <button type="button" className={`player-pick ${locked ? "locked" : ""} player-pick-${index % 3}`} key={`bowler-${p}`} disabled={locked} onClick={() => onSelect(p)}><div className="bowler-name"><b>{p}</b>{locked && <span className="lock-mark">LOCKED</span>}</div><div className="bowler-metrics"><span><b>{Math.floor(f.balls / 6)}.{f.balls % 6}</b><small>OVERS</small></span><span><b>{econ}</b><small>ECON</small></span><span><b>{f.wickets}</b><small>WICKETS</small></span></div><span className="pick-label">{locked ? "JUST BOWLED THIS OVER" : "SELECT BOWLER →"}</span></button>; })}</div></Modal>;
-}
-
-function SecondInningsSetup({ battingTeam, bowlingTeam, teams, setup, setSetup, onStart, isDraftMatch = false }) {
-  const battingPlayers = unique(teams[battingTeam]?.players || []);
-  const bowlingPlayers = unique(teams[bowlingTeam]?.players || []);
-  return <div className="second-innings-setup">
-    <div className="setup-grid">
-      <label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={`second-striker-${p}`}>{p}</option>)}</select></label>
-      <label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={`second-non-${p}`}>{p}</option>)}</select></label>
-      <label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={`second-bowler-${p}`}>{p}</option>)}</select></label>
-    </div>
-    {!isDraftMatch && <div className="setup-ball-type"><span className="panel-kicker">OPENING BOWLING TYPE</span><div className="setup-choice-row"><button type="button" className={`choice-chip ${setup.ballType === "pace" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "pace" }))}>Pace</button><button type="button" className={`choice-chip ${setup.ballType === "spin" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "spin" }))}>Spin</button></div></div>}
-    <button className="comic-button primary wide-button" onClick={onStart}>Start second innings <span>→</span></button>
-  </div>;
-}
-
-function Setup({ fixture, teams, setup, setSetup, onStart }) {
+function SetupFields({ fixture, teams, setup, setSetup }) {
   const bowling = setup.batting === fixture.t1 ? fixture.t2 : fixture.t1;
-  const tossTeams = [fixture.t1, fixture.t2];
+  const updateToss = (winner, decision) => { const batting = decision === "bat" ? winner : (winner === fixture.t1 ? fixture.t2 : fixture.t1); const bowl = batting === fixture.t1 ? fixture.t2 : fixture.t1; setSetup({ ...setup, tossWinner: winner, tossDecision: decision, batting, striker: teams[batting]?.players?.[0] || "", nonStriker: teams[batting]?.players?.[1] || "", bowler: teams[bowl]?.players?.[0] || "" }); };
   const battingPlayers = unique(teams[setup.batting]?.players || []);
   const bowlingPlayers = unique(teams[bowling]?.players || []);
-  const updateToss = (winner, decision) => {
-    const batting = decision === "bat" ? winner : (winner === fixture.t1 ? fixture.t2 : fixture.t1);
-    const bowl = batting === fixture.t1 ? fixture.t2 : fixture.t1;
-    setSetup({
-      ...setup,
-      tossWinner: winner,
-      tossDecision: decision,
-      batting,
-      striker: teams[batting]?.players?.[0] || "",
-      nonStriker: teams[batting]?.players?.[1] || "",
-      bowler: teams[bowl]?.players?.[0] || ""
-    });
-  };
-  return <section className="comic-panel paper-panel setup-panel">
-    <div className="panel-heading"><div><span className="panel-kicker">MATCH SETUP</span><ComicTitle as="h2">Set the opening players</ComicTitle></div><span className="format-stamp">3 WICKETS / 6 OVERS</span></div>
-    <div className="setup-grid">
-      <div className="setup-derived"><span>Batting first</span><strong>{setup.batting}</strong></div>
-      <div className="setup-derived"><span>Bowling first</span><strong>{bowling}</strong></div>
-      <label>Toss winner<select value={setup.tossWinner} onChange={(e) => updateToss(e.target.value, setup.tossDecision)}>{tossTeams.map((t) => <option key={`toss-winner-${t}`}>{t}</option>)}</select></label>
-      <label>Toss decision<select value={setup.tossDecision} onChange={(e) => updateToss(setup.tossWinner, e.target.value)}><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label>
-      <label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={`setup-striker-${p}`}>{p}</option>)}</select></label>
-      <label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={`setup-non-${p}`}>{p}</option>)}</select></label>
-      <label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={`setup-bowler-${p}`}>{p}</option>)}</select></label>
-    </div>
-    {!fixture.internal && <div className="setup-ball-type"><span className="panel-kicker">OPENING BOWLING TYPE</span><div className="setup-choice-row"><button type="button" className={`choice-chip ${setup.ballType === "pace" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "pace" }))}>Pace</button><button type="button" className={`choice-chip ${setup.ballType === "spin" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "spin" }))}>Spin</button></div></div>}
-    <button className="comic-button primary wide-button" onClick={onStart}>Start Match <span>→</span></button>
-  </section>;
+  return <div className="setup-grid"><div className="setup-derived"><span>Batting first</span><strong>{setup.batting}</strong></div><div className="setup-derived"><span>Bowling first</span><strong>{bowling}</strong></div><label>Toss winner<select value={setup.tossWinner} onChange={(e) => updateToss(e.target.value, setup.tossDecision)}>{[fixture.t1, fixture.t2].map((team) => <option key={team}>{team}</option>)}</select></label><label>Toss decision<select value={setup.tossDecision} onChange={(e) => updateToss(setup.tossWinner, e.target.value)}><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div>;
+}
+
+function SecondInningsSetup({ battingTeam, bowlingTeam, teams, onStart }) {
+  const battingPlayers = unique(teams[battingTeam]?.players || []); const bowlingPlayers = unique(teams[bowlingTeam]?.players || []);
+  const [setup, setSetup] = useState({ striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
+  return <section className="innings-break comic-panel paper-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{battingTeam} is chasing.</ComicTitle></div><span className="format-stamp">SET OPENING PLAYERS</span></div><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start second innings <span>→</span></button></section>;
+}
+
+function SuperOverSetup({ teams, stage, onStart }) {
+  const batting = stage.battingFirst || Object.keys(teams)[0]; const bowling = stage.bowlingFirst || Object.keys(teams).find((x) => x !== batting) || "";
+  const battingPlayers = unique(teams[batting]?.players || []); const bowlingPlayers = unique(teams[bowling]?.players || []);
+  const [setup, setSetup] = useState({ striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
+  return <section className="comic-panel paper-panel setup-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">SUPER OVER {stage.index} / SETUP</span><ComicTitle as="h2">One over. Two wickets.</ComicTitle></div><span className="format-stamp">1 OVER / 2 WKTS</span></div><p>{batting} bats first; {bowling} bowls.</p><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start Super Over <span>→</span></button></section>;
+}
+
+function WicketModal({ origin, state, battingPlayers, bowlingPlayers, draft, setDraft, onClose, onSubmit }) {
+  const isRunOut = draft.type === "Run Out"; const fielderNeeded = ["Caught", "Run Out", "Stumped"].includes(draft.type);
+  return <Modal origin={origin} onClose={onClose} className="wicket-modal paper-panel" ariaLabel="Dismissal control"><div className="modal-heading"><div><span className="panel-kicker">DISMISSAL CONTROL</span><ComicTitle as="h2">Record the wicket</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="modal-scroll-content"><div className="dismissed-lock"><span>DISMISSED BATTER</span>{isRunOut ? <div className="dismissal-player-choice">{[state.live.striker, state.live.nonStriker].filter(Boolean).map((p) => <button key={p} className={draft.dismissed === p ? "selected" : ""} onClick={() => setDraft((d) => ({ ...d, dismissed: p }))}>{p}</button>)}</div> : <div className="dismissed-fixed"><b>{draft.dismissed || state.live.striker}</b><span>Selected automatically.</span></div>}</div><label>Dismissal type<select value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value, fielder: "" }))}>{DISMISSAL_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>{isRunOut && <label>Dismissed at<select value={draft.outEnd} onChange={(e) => setDraft((d) => ({ ...d, outEnd: e.target.value }))}><option value="striker">Striker's end</option><option value="nonStriker">Non-striker's end</option></select></label>}{fielderNeeded && <label>Fielder<select value={draft.fielder} onChange={(e) => setDraft((d) => ({ ...d, fielder: e.target.value }))}><option value="">Select fielder</option>{unique(bowlingPlayers).map((p) => <option key={p}>{p}</option>)}</select></label>}</div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={onSubmit}>Confirm <span>→</span></button></div></Modal>;
+}
+
+function RetirementModal({ origin, type, player, players, onChange, onClose, onSubmit }) {
+  return <Modal origin={origin} onClose={onClose} className="retirement-modal paper-panel" ariaLabel={type}><div className="modal-heading"><div><span className="panel-kicker">SPECIAL PLAYER STATUS</span><ComicTitle as="h2">{type}</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><p>{type === "Retired Hurt" ? "No wicket is recorded. The player becomes eligible to return only after two wickets are down." : "Counts as an innings wicket, but not as a bowler wicket."}</p><label>Player<select value={player} onChange={(e) => onChange(e.target.value)}>{players.map((p) => <option key={p}>{p}</option>)}</select></label><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={onSubmit}>Confirm {type} <span>→</span></button></div></Modal>;
+}
+
+function RetiredHurtReturnModal({ players, value, setValue, onBringBack, onEnd, onClose }) {
+  return <Modal onClose={onClose} className="retirement-return-modal paper-panel" ariaLabel="Retired hurt return"><div className="modal-heading"><div><span className="panel-kicker">RETIREMENT / RETURN</span><ComicTitle as="h2">A batter is available to return.</ComicTitle></div></div><p>{value || players[0] || "The retired-hurt player"} can return now because two wickets are down.</p><div className="retirement-player-choice">{players.map((p) => <button key={p} className={value === p ? "selected" : ""} onClick={() => setValue(p)}>{p}</button>)}</div><div className="modal-actions"><button className="comic-button primary" onClick={onBringBack}>BRING PLAYER BACK</button><button className="back-button viewer-family" onClick={onEnd}>END INNINGS</button></div></Modal>;
+}
+
+function NewBatsmanModal({ battingPlayers, live, dismissedPlayers, excluded, value, setValue, slot, onClose, onSubmit }) {
+  const choices = unique(battingPlayers.filter((p) => p !== live.striker && p !== live.nonStriker && p !== excluded && !dismissedPlayers.includes(p)));
+  return <Modal onClose={onClose} className="new-batsman-modal paper-panel" ariaLabel="Next batter"><div className="modal-heading"><div><span className="panel-kicker">NEXT BATTER</span><ComicTitle as="h2">Who walks in?</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div>{choices.length ? <label>Incoming batter<select value={value || choices[0]} onChange={(e) => setValue(e.target.value)}>{choices.map((p) => <option key={p}>{p}</option>)}</select></label> : <p>No eligible batter remains.</p>}<div className="incoming-slot">{slot === "striker" ? "STRIKER'S END" : "NON-STRIKER'S END"}</div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button>{choices.length > 0 && <button className="comic-button primary" onClick={onSubmit}>Bring in <span>→</span></button>}</div></Modal>;
+}
+
+function BowlerModal({ bowlingPlayers, currentInn, previousBowler, onSelect, onClose }) {
+  const score = currentInn ? computeInnings(currentInn.deliveries) : { bowlers: {} };
+  return <Modal onClose={onClose} className="bowler-modal paper-panel" ariaLabel="Select new bowler"><div className="modal-heading"><div><span className="panel-kicker">NEW OVER</span><ComicTitle as="h2">Select new bowler</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="bowler-choice-grid">{unique(bowlingPlayers).map((p) => { const f = score.bowlers[p] || { balls: 0, runs: 0, wickets: 0 }; const locked = p === previousBowler; return <button type="button" className={`player-pick ${locked ? "locked" : ""}`} key={p} disabled={locked} onClick={() => onSelect(p)}><b>{p}</b><small>{Math.floor(f.balls / 6)}.{f.balls % 6} OV · {f.runs} R · {f.wickets} W</small><span>{locked ? "JUST BOWLED" : "SELECT →"}</span></button>; })}</div></Modal>;
+}
+
+function ResultPanel({ fixture, teams, matchId, state, isSuper, superOverIndex, stage, allStages, winnerText, tiedStage, nextSuperIndex, onScorecard }) {
+  const title = winnerText ? `${winnerText} wins` : tiedStage ? (isSuper ? `Super Over ${superOverIndex} tied` : "Match tied") : `${stage.result?.winner || state.result?.winner} wins`;
+  const description = stage.result?.desc || state.result?.desc || "";
+  return <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} COMPLETE` : "MATCH COMPLETE"}</span><ComicTitle as="h2">{title}</ComicTitle><p>{description}</p><div className="super-over-timeline">{allStages.filter((x) => x.innings?.length).map((x, index) => <div className="super-over-stage" key={`${x.label}-${index}`}><div className="super-over-stage__label">{x.label}</div><div className="result-scores">{x.innings.map((inn, i) => { const c = computeInnings(inn.deliveries, { maxOvers: inn.maxOvers || (index ? SUPER_OVER_MAX_OVERS : MAX_OVERS), maxWickets: inn.maxWickets || (index ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS) }); return <div key={`${x.label}-${i}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{c.runs}/{c.wickets}</strong><span>({c.overs}.{c.balls})</span></div>; })}</div></div>)}</div><div className="result-actions">{tiedStage && <a className="comic-button primary super-over-button" href={scorerPath(matchId, nextSuperIndex)}>BEGIN SUPER OVER{nextSuperIndex > 1 ? ` ${nextSuperIndex}` : ""} ↗</a>}<button className="central-scorecard-button" onClick={onScorecard}>VIEW SCORECARD ↗</button></div></section>;
 }
 
 function NotFoundScorer() {

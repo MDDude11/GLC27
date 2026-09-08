@@ -29,6 +29,8 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      - name: Check local imports
+        run: npm run check-imports
       - name: Build
         env:
           VITE_ADMIN_PASSWORD: ${{ secrets.VITE_ADMIN_PASSWORD }}

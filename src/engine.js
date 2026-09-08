@@ -3,8 +3,10 @@ import { MAX_OVERS, MAX_WICKETS, TEAMS } from "./data.js";
 export const clone = (value) => JSON.parse(JSON.stringify(value));
 export const isLegal = (d) => !d.wide && !d.noBall && !d.deadBall;
 export const isRetirement = (d) => Boolean(d.retired);
+export const isRetiredOut = (d) => Boolean(d.retired) && d.retirementType === "Retired Out";
+export const isRetiredHurt = (d) => Boolean(d.retired) && d.retirementType === "Retired Hurt";
 export const isBowlerWicket = (d) => Boolean(d.wicket) && !d.retired && !d.deadBall && d.wicketType !== "Run Out";
-export const isRecordedWicket = (d) => Boolean(d.wicket) && !d.retired && !d.deadBall;
+export const isRecordedWicket = (d) => Boolean(d.wicket) && !d.deadBall || isRetiredOut(d);
 
 const blankBatter = () => ({ runs: 0, balls: 0, fours: 0, sixes: 0, out: false, dismissal: "", retired: false });
 const blankBowler = () => ({ balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 });
@@ -23,10 +25,14 @@ export function normalizeDeliveries(value = []) {
   return entries.map(([, delivery]) => delivery);
 }
 
-export function computeInnings(deliveries = []) {
+export function computeInnings(deliveries = [], options = {}) {
+  const maxOvers = Number(options.maxOvers) > 0 ? Number(options.maxOvers) : MAX_OVERS;
+  const maxWickets = Number(options.maxWickets) > 0 ? Number(options.maxWickets) : MAX_WICKETS;
+  const cacheKey = `${maxOvers}:${maxWickets}`;
   const list = normalizeDeliveries(deliveries);
   if (Array.isArray(list)) {
-    const cached = inningsCache.get(list);
+    const cachedMap = inningsCache.get(list);
+    const cached = cachedMap?.get(cacheKey);
     if (cached) return cached;
   }
   let runs = 0;
@@ -88,7 +94,7 @@ export function computeInnings(deliveries = []) {
       lastCompletedOver += 1;
     }
   }
-  if (list.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < MAX_OVERS) overRuns.push(currentOverRuns);
+  if (list.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < maxOvers) overRuns.push(currentOverRuns);
 
   const result = {
     runs,
@@ -97,8 +103,8 @@ export function computeInnings(deliveries = []) {
     legal,
     overs: Math.floor(legal / 6),
     balls: legal % 6,
-    limitOvers: MAX_OVERS,
-    limitBalls: MAX_OVERS * 6,
+    limitOvers: maxOvers,
+    limitBalls: maxOvers * 6,
     batters,
     bowlers,
     overRuns,
@@ -106,20 +112,30 @@ export function computeInnings(deliveries = []) {
     completedOvers: lastCompletedOver
   };
 
-  if (Array.isArray(list)) inningsCache.set(list, result);
+  if (Array.isArray(list)) {
+    let cachedMap = inningsCache.get(list);
+    if (!cachedMap) {
+      cachedMap = new Map();
+      inningsCache.set(list, cachedMap);
+    }
+    cachedMap.set(cacheKey, result);
+  }
   return result;
 }
 
-export function inningsFinished(inn, target = null) {
-  return inn.wickets >= MAX_WICKETS || inn.legal >= MAX_OVERS * 6 || (target != null && inn.runs >= target);
+export function inningsFinished(inn, target = null, options = {}) {
+  const maxOvers = Number(options.maxOvers) > 0 ? Number(options.maxOvers) : MAX_OVERS;
+  const maxWickets = Number(options.maxWickets) > 0 ? Number(options.maxWickets) : MAX_WICKETS;
+  return inn.wickets >= maxWickets || inn.legal >= maxOvers * 6 || (target != null && inn.runs >= target);
 }
 
-export function describeResult(match) {
-  const a = computeInnings(match.innings[0]?.deliveries || []);
-  const b = computeInnings(match.innings[1]?.deliveries || []);
+export function describeResult(match, options = {}) {
+  const maxWickets = Number(options.maxWickets) > 0 ? Number(options.maxWickets) : MAX_WICKETS;
+  const a = computeInnings(match.innings[0]?.deliveries || [], options);
+  const b = computeInnings(match.innings[1]?.deliveries || [], options);
   const t1 = match.innings[0]?.battingTeam || "";
   const t2 = match.innings[1]?.battingTeam || "";
-  if (b.runs > a.runs) return { winner: t2, desc: `${t2} won by ${Math.max(0, MAX_WICKETS - b.wickets)} wicket${MAX_WICKETS - b.wickets === 1 ? "" : "s"}` };
+  if (b.runs > a.runs) return { winner: t2, desc: `${t2} won by ${Math.max(0, maxWickets - b.wickets)} wicket${maxWickets - b.wickets === 1 ? "" : "s"}` };
   if (a.runs > b.runs) return { winner: t1, desc: `${t1} won by ${a.runs - b.runs} run${a.runs - b.runs === 1 ? "" : "s"}` };
   return { winner: "tie", desc: "Match tied" };
 }
@@ -127,7 +143,7 @@ export function describeResult(match) {
 export function playerStats(state, innings = null, player = "") {
   const inn = innings || state?.innings?.[state.innings.length - 1];
   if (!inn || !player) return null;
-  const c = computeInnings(inn.deliveries);
+  const c = computeInnings(inn.deliveries, { maxOvers: inn.maxOvers, maxWickets: inn.maxWickets });
   const batting = c.batters[player] || blankBatter();
   const bowling = c.bowlers[player] || blankBowler();
   return {
@@ -174,8 +190,12 @@ export function playerStatsForMatch(state = {}) {
       fielding: { catches: 0, runOuts: 0, stumpings: 0 }
     };
   }
-  for (const inn of state.innings || []) {
-    const c = computeInnings(inn.deliveries || []);
+  const allInnings = [
+    ...(state.innings || []),
+    ...((state.superOvers || []).flatMap((stage) => stage?.innings || []))
+  ];
+  for (const inn of allInnings) {
+    const c = computeInnings(inn.deliveries || [], { maxOvers: inn.maxOvers, maxWickets: inn.maxWickets });
     for (const [name, b] of Object.entries(c.batters)) {
       result[name] ||= { batting: { runs: 0, balls: 0, fours: 0, sixes: 0, highestScore: 0, dismissed: false, retired: false, dismissal: "", strikeRate: "0.00" }, bowling: { balls: 0, overs: "0.0", runs: 0, wickets: 0, wides: 0, noBalls: 0, economy: "0.00" }, fielding: { catches: 0, runOuts: 0, stumpings: 0 } };
       result[name].batting.runs += b.runs;
@@ -214,10 +234,13 @@ export function playerStatsForMatch(state = {}) {
 
 export function teamStats(state, teamCode, role = "batting", teams = TEAMS) {
   const players = teams[teamCode]?.players || [];
-  const innings = state?.innings?.filter((inn) => role === "batting" ? inn.battingTeam === teamCode : inn.bowlingTeam === teamCode) || [];
+  const innings = [
+    ...(state?.innings || []),
+    ...((state?.superOvers || []).flatMap((stage) => stage?.innings || []))
+  ].filter((inn) => role === "batting" ? inn.battingTeam === teamCode : inn.bowlingTeam === teamCode);
   const merged = Object.fromEntries(players.map((p) => [p, { runs: 0, balls: 0, fours: 0, sixes: 0, wickets: 0, runsConceded: 0, legalBalls: 0, wides: 0, noBalls: 0, dismissed: false, retired: false }]));
   innings.forEach((inn) => {
-    const c = computeInnings(inn.deliveries);
+    const c = computeInnings(inn.deliveries, { maxOvers: inn.maxOvers, maxWickets: inn.maxWickets });
     players.forEach((p) => {
       if (role === "batting") {
         const b = c.batters[p];
@@ -231,11 +254,12 @@ export function teamStats(state, teamCode, role = "batting", teams = TEAMS) {
   return merged;
 }
 
-export function inningsAnalytics(innings, target = null) {
-  const score = computeInnings(innings?.deliveries || []);
+export function inningsAnalytics(innings, target = null, options = {}) {
+  const maxOvers = Number(options.maxOvers) > 0 ? Number(options.maxOvers) : (Number(innings?.maxOvers) > 0 ? Number(innings.maxOvers) : MAX_OVERS);
+  const score = computeInnings(innings?.deliveries || [], { ...options, maxOvers });
   const currentRR = score.legal ? score.runs / (score.legal / 6) : 0;
   const requiredRuns = target == null ? null : Math.max(0, target - score.runs);
-  const ballsLeft = Math.max(0, MAX_OVERS * 6 - score.legal);
+  const ballsLeft = Math.max(0, maxOvers * 6 - score.legal);
   const requiredRR = requiredRuns != null && ballsLeft ? requiredRuns / (ballsLeft / 6) : null;
   const futureRates = [4, 5, 6, 7, 8, 10, 12].map((rate) => ({ rate, projectedRuns: Math.round(score.runs + (ballsLeft / 6) * rate), chaseFinish: requiredRuns == null ? null : requiredRuns <= (ballsLeft / 6) * rate ? Math.ceil(requiredRuns / rate) : null }));
   return { score, currentRR, requiredRuns, ballsLeft, requiredRR, futureRates };

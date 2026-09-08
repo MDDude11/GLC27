@@ -1,14 +1,15 @@
 {
-  "name": "glt-drafts-2027-itb18-firebase-pwa-stable",
+  "name": "glt-drafts-2027-itb19-firebase-pwa-stable",
   "private": true,
-  "version": "18.5.0",
+  "version": "19.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "node scripts/lint.mjs",
-    "verify-build": "node scripts/verify-build.mjs"
+    "verify-build": "node scripts/verify-build.mjs",
+    "check-imports": "node scripts/check-local-imports.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",

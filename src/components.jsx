@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
 import { flushPendingWrites } from "./store.js";
 import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
+
+const unique = (items) => [...new Set((items || []).filter(Boolean))];
 
 const deliveryList = (value = []) => {
   if (Array.isArray(value)) return value.filter(Boolean);
@@ -89,10 +92,25 @@ export function HalftoneField() {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const radius = gap * 4.2;
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
       const minX = Math.max(gap * .55, Math.floor((current.x - radius) / gap) * gap + gap * .55);
       const maxX = Math.min(width + gap, Math.ceil((current.x + radius) / gap) * gap + gap * .55);
       const minY = Math.max(gap * .55, Math.floor((current.y - radius) / gap) * gap + gap * .55);
       const maxY = Math.min(height + gap, Math.ceil((current.y + radius) / gap) * gap + gap * .55);
+      for (let y = minY; y <= maxY; y += gap) {
+        for (let x = minX; x <= maxX; x += gap) {
+          const dx = current.x - x;
+          const dy = current.y - y;
+          const dist = Math.hypot(dx, dy);
+          const influence = Math.max(0, 1 - dist / radius);
+          if (influence <= 0) continue;
+          ctx.beginPath();
+          ctx.arc(x, y, 8.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
       for (let y = minY; y <= maxY; y += gap) {
         for (let x = minX; x <= maxX; x += gap) drawDot(ctx, x, y, current);
       }
@@ -372,6 +390,24 @@ export function SiteFrame({ children, active = "" }) {
   usePressFX();
   useComicNavigation();
   useConnectivityStatus();
+  useEffect(() => {
+    const update = () => {
+      const topbar = document.querySelector(".topbar");
+      const top = (topbar?.getBoundingClientRect().bottom || 58) + 10;
+      document.querySelectorAll(".match-experience-page .panel-heading[data-anchor-heading]").forEach((heading) => {
+        const rect = heading.getBoundingClientRect();
+        heading.classList.toggle("is-condensed", rect.top <= top && rect.bottom > top + 8);
+      });
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+    const timer = window.setTimeout(update, 0);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      window.clearTimeout(timer);
+    };
+  }, []);
   return <div className="site-shell">
     <HalftoneField />
     <div className="network-status" role="status" aria-live="polite">No internet connection — reconnect to continue.</div>
@@ -394,27 +430,26 @@ export function ComicTitle({ as: Tag = "h1", children, className = "" }) {
   return <Tag className={`comic-title ${className}`}>{children}</Tag>;
 }
 
-export function WicketCount({ wickets, deliveries, className = "" }) {
+export function WicketCount({ wickets, deliveries, retiredHurt = [], className = "" }) {
   const normalizedDeliveries = deliveryList(deliveries);
   const falls = useMemo(() => fallOfWickets(normalizedDeliveries), [normalizedDeliveries]);
   const [open, setOpen] = useState(false);
-  if (!falls.length) return <span className={className}>{wickets}</span>;
+  const hurt = unique(retiredHurt);
+  if (!falls.length && !hurt.length) return <span className={className}>{wickets}</span>;
   const list = falls.slice().reverse();
   return <span
-    className={`wicket-count-tip ${className}`}
+    className={`wicket-count-wrap ${className}`}
     tabIndex={0}
     onMouseEnter={() => setOpen(true)}
     onMouseLeave={() => setOpen(false)}
     onFocus={() => setOpen(true)}
     onBlur={() => setOpen(false)}
   >
-    {wickets}
+    <span className="wicket-count-number">{wickets}</span>
+    {hurt.map((name) => <span className="retired-hurt-slot" key={`hurt-${name}`} aria-label={`${name} retired hurt`}><span>H</span><b>{name}</b></span>)}
     {open && <span className="wicket-tip-pop" role="tooltip">
-      <span className="wicket-tip-title">FALL OF WICKETS</span>
-      {list.map((f, i) => <span className="wicket-tip-row" key={`fow-${i}-${f.dismissed}`}>
-        <b>{f.dismissed}</b>
-        <span>{f.wicketType}{f.bowler ? ` · b. ${f.bowler}` : ""}{f.fielder ? ` (${f.fielder})` : ""}</span>
-      </span>)}
+      {hurt.length > 0 && <><span className="wicket-tip-title">RETIRED HURT</span>{hurt.map((name) => <span className="wicket-tip-row" key={`hurt-tip-${name}`}><b>{name}</b><span>H · available after 2 wickets</span></span>)}</>}
+      {list.length > 0 && <><span className="wicket-tip-title">FALL OF WICKETS</span>{list.map((f, i) => <span className="wicket-tip-row" key={`fow-${i}-${f.dismissed}`}><b>{f.dismissed}</b><span>{f.wicketType}{f.bowler ? ` · b. ${f.bowler}` : ""}{f.fielder ? ` (${f.fielder})` : ""}</span></span>)}</>}
     </span>}
   </span>;
 }
@@ -458,27 +493,31 @@ export function Commentary({ deliveries, limit = null }) {
 }
 Commentary.defaultLimit = 6;
 
-export function Scorecard({ innings }) {
-  return <div className="scorecard-list">
-    {innings.map((inn, inningsIndex) => {
+export function Scorecard({ innings = [], superOvers = [] }) {
+  const renderStage = (stageInnings, label, keyPrefix) => <>
+    <div className="scorecard-stage-heading"><span>{label}</span></div>
+    {stageInnings.map((inn, inningsIndex) => {
       const c = computeInnings(inn.deliveries);
-      return <div className="scorecard-innings" key={`scorecard-${inn.battingTeam}-${inningsIndex}`}>
+      return <div className="scorecard-innings" key={`${keyPrefix}-${inn.battingTeam}-${inningsIndex}`}>
         <div className="scorecard-title"><b>{inn.battingTeam}</b><strong>{c.runs}/{c.wickets}</strong><span>{c.overs}.{c.balls} ov</span></div>
         <div className="scorecard-table">
           <div className="table-head"><span>Batter</span><span>R</span><span>B</span><span>4s</span><span>6s</span></div>
-          {Object.entries(c.batters).map(([name, p]) => <div className="table-row" key={`scorecard-${inn.battingTeam}-bat-${name}`}><span>{name}{p.out || p.retired ? <small> · {p.dismissal}</small> : ""}</span><b>{p.runs}</b><span>{p.balls}</span><span>{p.fours}</span><span>{p.sixes}</span></div>)}
+          {Object.entries(c.batters).map(([name, p]) => <div className="table-row" key={`${keyPrefix}-${inn.battingTeam}-bat-${name}`}><span>{name}{p.out || p.retired ? <small> · {p.dismissal}</small> : ""}</span><b>{p.runs}</b><span>{p.balls}</span><span>{p.fours}</span><span>{p.sixes}</span></div>)}
           <div className="table-head bowling-head"><span>Bowler</span><span>OV</span><span>R</span><span>W</span><span>ER</span></div>
-          {Object.entries(c.bowlers).map(([name, p]) => <div className="table-row" key={`scorecard-${inn.battingTeam}-bowl-${name}`}><span>{name}</span><span>{Math.floor(p.balls / 6)}.{p.balls % 6}</span><b>{p.runs}</b><span>{p.wickets}</span><span>{p.balls ? (p.runs / (p.balls / 6)).toFixed(1) : "—"}</span></div>)}
+          {Object.entries(c.bowlers).map(([name, p]) => <div className="table-row" key={`${keyPrefix}-${inn.battingTeam}-bowl-${name}`}><span>{name}</span><span>{Math.floor(p.balls / 6)}.{p.balls % 6}</span><b>{p.runs}</b><span>{p.wickets}</span><span>{p.balls ? (p.runs / (p.balls / 6)).toFixed(1) : "—"}</span></div>)}
         </div>
       </div>;
     })}
+  </>;
+  return <div className="scorecard-list">
+    {innings.length > 0 && renderStage(innings, "MAIN MATCH", "main")}
+    {superOvers.map((stage, index) => renderStage(stage.innings || [], `SUPER OVER ${index + 1}`, `super-${index + 1}`))}
   </div>;
 }
-
 export function PlayerStats({ state, teamCodes, teams = TEAMS, mode = "viewer" }) {
   const groups = useMemo(() => teamCodes.map((code) => ({ code, batting: teamStats(state, code, "batting", teams), bowling: teamStats(state, code, "bowling", teams) })), [state, teamCodes, teams]);
   return <section className={`player-stats-section ${mode === "scorer" ? "scorer-stats-section" : "viewer-stats-section"}`}>
-    <div className="panel-heading"><div><span className="panel-kicker">{mode === "scorer" ? "PLAYER CONTROL" : "PLAYER INDEX"}</span><ComicTitle as="h2">All player figures</ComicTitle></div><span className="format-stamp">LIVE</span></div>
+    <div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{mode === "scorer" ? "PLAYER CONTROL" : "PLAYER INDEX"}</span><ComicTitle as="h2">All player figures</ComicTitle></div><span className="format-stamp">LIVE</span></div>
     <div className="player-stats-groups">
       {groups.map(({ code, batting, bowling }) => <article className="player-stats-group" key={`stats-group-${code}`}>
         <header><TeamBadge code={code} teams={teams} /><b>{teams?.[code]?.name || code}</b></header>
@@ -518,9 +557,10 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
   };
   const style = origin ? { "--origin-x": `${origin.x}px`, "--origin-y": `${origin.y}px` } : undefined;
   const shellStyle = style;
-  return <div className={`modal-backdrop ${closing ? "is-closing" : ""}`} onClick={requestClose} style={style} role="presentation">
+  const modal = <div className={`modal-backdrop ${closing ? "is-closing" : ""}`} onClick={requestClose} style={style} role="presentation">
     <div className={`modal-shell ${className} ${closing ? "is-closing" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={ariaLabel} style={shellStyle}>{children}</div>
   </div>;
+  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
 }
 
 /** Opens a modal by morphing the clicked trigger element into the modal shell
@@ -579,12 +619,12 @@ export function DetailedStatsModal({ innings = [], onClose, origin = null, morph
   </Modal>;
 }
 
-export function ScorecardModal({ innings, onClose, origin = null, morphName = "" }) {
+export function ScorecardModal({ innings = [], superOvers = [], onClose, origin = null, morphName = "" }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsOrigin, setDetailsOrigin] = useState(null);
   return <Modal origin={origin} onClose={onClose} className="scorecard-modal" ariaLabel="Full scorecard" morphName={morphName}>
     <div className="modal-heading"><div><span className="panel-kicker">OFFICIAL RECORD</span><ComicTitle as="h2">Full scorecard</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div>
-    <Scorecard innings={innings} />
+    <Scorecard innings={innings} superOvers={superOvers} />
     <button className="comic-button stats-family modal-details-button" onClick={(e) => morphOpen(e, "detailed-stats-morph", () => { setDetailsOrigin({ x: e.clientX, y: e.clientY }); setDetailsOpen(true); })}>Detailed stats ↗</button>
     {detailsOpen && <DetailedStatsModal innings={innings} origin={detailsOrigin} onClose={() => setDetailsOpen(false)} morphName="detailed-stats-morph" />}
   </Modal>;

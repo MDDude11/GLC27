@@ -33,7 +33,7 @@ switch (relativePath) {
     element = <ViewerPage matchId={matchId} />;
     break;
   case "/scorer":
-    element = <ScorerPage matchId={matchId} />;
+    element = <ScorerPage matchId={matchId} superOverIndex={Number(params.get("super")) || 0} />;
     break;
   case "/settings":
     element = <SettingsPage />;

@@ -3,6 +3,21 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v19",
+    items: [
+      "Added recursive Super Over scoring for tied matches, with the same match record retaining the main match and every Super Over stage.",
+      "A tied main match or tied Super Over now exposes BEGIN SUPER OVER beside VIEW SCORECARD; another tied Super Over can start the next stage without an arbitrary depth limit.",
+      "Overall match progression and scorecards now show the main match followed by every Super Over, including the final deciding stage.",
+      "Restored the dedicated Retired Hurt / Retired Out flow below WIDE; the normal WICKET menu contains genuine dismissal types only.",
+      "Retired Hurt does not count as a wicket or bowler wicket, shows a grey H wicket-counter state, and becomes eligible to return only after two wickets are down.",
+      "Retired Out counts as an innings wicket but never as a bowler wicket.",
+      "Added compact match presentation across scorer and viewer pages, anchored section headers that condense while scrolling, and expandable commentary/scorecard sections.",
+      "Removed Pace/Spin setup choices from Match Begin and second-innings setup and made setup surfaces follow the active theme.",
+      "Placed modal layers above the footer and other page chrome, refined the Programme Drafts hover treatment, and fixed magnetic halftone dots so the affected dots are replaced by their enlarged state instead of being painted twice.",
+      "No intentional changes were made to Firebase authority, existing match lifecycle semantics, or ordinary delivery scoring behaviour outside the requested retirement and Super Over flows."
+    ]
+  },
+  {
     version: "ITB v18.5",
     items: [
       "Fixed the scorer render crash by removing the UI-level dependency on normalizeDeliveries from components.jsx and scorer.jsx.",

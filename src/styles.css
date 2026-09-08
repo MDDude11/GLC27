@@ -111,7 +111,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .nav-settings:hover { background:var(--purple); }
 .nav-about:hover { background:var(--orange); }
 .live-indicator { justify-self:end; color:var(--text-muted); font-family:"Barlow Condensed"; font-size:10px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
-.site-footer { position:relative; z-index:4; width:min(1180px,calc(100% - 34px)); margin:auto; padding:26px 0 38px; display:flex; justify-content:space-between; gap:18px; border-top:2px solid var(--line-soft); color:var(--text-muted); font-family:"Barlow Condensed"; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.site-footer { position:relative; z-index:3; width:min(1180px,calc(100% - 34px)); margin:auto; padding:26px 0 38px; display:flex; justify-content:space-between; gap:18px; border-top:2px solid var(--line-soft); color:var(--text-muted); font-family:"Barlow Condensed"; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
 
 /* v17.5 performance: keep expensive decorative layers cheap on small screens. */
 @media (max-width:700px) {
@@ -267,7 +267,7 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 .drafts-half { background:var(--accent); color:var(--ink); transform:rotate(-.7deg); clip-path:polygon(0 0,100% 1%,99% 98%,0 100%); }
 .glc-half { margin-left:-10px; background:#25201a; color:#fff8ec; transform:rotate(.7deg); clip-path:polygon(1% 2%,100% 0,100% 100%,0 98%); }
 .programme-half:hover { z-index:5; }
-.drafts-half:hover { background:var(--blue); transform:rotate(-.7deg) translateY(-3px) scale(1.006); }
+.drafts-half:hover { background:color-mix(in srgb, var(--accent) 88%, white 12%); transform:rotate(-.7deg) translateY(-3px) scale(1.006); }
 .glc-half:hover { background:#302b35; transform:rotate(.7deg) translateY(-2px) scale(1.004); }
 .programme-kicker { font-family:"Barlow Condensed"; font-size:11px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
 .programme-half .comic-title { font-size:clamp(72px,7.5vw,126px); margin:34px 0 22px; }
@@ -275,7 +275,7 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 .drafts-half p { color:#2a251d; }
 .glc-half p { color:#e5ddcf; }
 .programme-action { position:absolute; left:clamp(28px,4vw,64px); bottom:45px; padding:13px 16px; border:2px solid var(--line); background:#111; color:#fff8ec; box-shadow:6px 7px 0 var(--line); font-family:"Barlow Condensed"; font-weight:900; letter-spacing:.1em; text-transform:uppercase; transition:.14s ease; }
-.drafts-half:hover .programme-action { background:var(--red); color:var(--ink); transform:scale(1.015) translateY(-1px); }
+.drafts-half:hover .programme-action { background:var(--ink); color:var(--paper); transform:scale(1.015) translateY(-1px); box-shadow:7px 8px 0 var(--line); }
 .lock-plaque { display:inline-flex; align-items:center; gap:10px; margin-top:23px; padding:9px 12px; border:2px solid currentColor; font-family:"Barlow Condensed"; font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; transform:rotate(-2deg); }
 .lock-plaque b { font-size:16px; }
 
@@ -475,7 +475,7 @@ select option { background:var(--paper-light); color:var(--ink); font-family:"DM
 .scorer-lower > article { min-width:0; padding:20px; }
 
 /* Dismissal */
-.modal-backdrop { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:clamp(96px, 13vh, 150px) 16px 16px; background:rgba(8,7,5,.76); backdrop-filter:blur(3px); }
+.modal-backdrop { position:fixed; inset:0; z-index:2000; display:grid; place-items:center; padding:clamp(96px, 13vh, 150px) 16px 16px; background:rgba(8,7,5,.76); backdrop-filter:blur(3px); }
 .modal-shell { width:min(820px,100%); max-height:min(calc(100vh - clamp(112px, 15vh, 166px)),900px); min-width:0; display:flex; flex-direction:column; overflow:hidden; border:3px solid var(--line); box-shadow:12px 13px 0 var(--line); background:var(--paper); color:var(--ink); animation:modalIn .28s cubic-bezier(.2,.8,.2,1) both; transform-origin:var(--origin-x,50%) var(--origin-y,50%); }
 .modal-backdrop.is-closing .modal-shell { animation:modalOut .17s ease both; }
 .modal-heading { position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:20px 22px 12px; border-bottom:3px solid var(--line); background:inherit; overflow:hidden; }
@@ -1821,21 +1821,22 @@ html[data-reduce-motion="1"] .internal-match-card {
   animation: none !important;
 }
 
-/* ITB15.5 innings setup controls */
+/* v19 innings setup controls */
 .setup-derived {
   display: grid;
   gap: 6px;
   padding: 12px 14px;
-  border: 1px solid rgba(18, 18, 18, .12);
+  border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: rgba(18, 18, 18, .04);
+  background: var(--surface-2);
+  color: var(--text);
 }
 .setup-derived span {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
-  opacity: .55;
+  color:var(--text-muted);
 }
 .setup-derived strong {
   font-size: 16px;
@@ -1875,7 +1876,7 @@ html[data-reduce-motion="1"] .internal-match-card {
 .release-notes-button { border:2px solid var(--line); background:var(--surface); color:var(--text); box-shadow:4px 5px 0 var(--line); padding:7px 10px; font-family:"Barlow Condensed"; font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:transform .13s ease, box-shadow .13s ease, background .13s ease; }
 .release-notes-button:hover { transform:translate(-1px,-1px); box-shadow:5px 6px 0 var(--line); background:var(--accent); color:var(--ink); }
 .release-notes-button:active { transform:translate(2px,2px); box-shadow:2px 3px 0 var(--line); }
-.release-notes-overlay { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(10,8,6,.68); backdrop-filter:blur(5px); }
+.release-notes-overlay { position:fixed; inset:0; z-index:2000; display:grid; place-items:center; padding:20px; background:rgba(10,8,6,.68); backdrop-filter:blur(5px); }
 .release-notes-modal { width:min(860px, 100%); max-height:min(82vh, 760px); overflow:auto; padding:26px; }
 .release-notes-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:20px; }
 .release-notes-close { width:34px; height:34px; border:2px solid var(--line); background:var(--paper-2); color:var(--ink); box-shadow:3px 4px 0 var(--line); font-size:23px; line-height:1; cursor:pointer; }
@@ -1933,3 +1934,295 @@ html[data-reduce-motion="1"] .internal-match-card {
   .release-notes-scroll { padding:15px 15px 18px; }
   .release-notes-close { width:36px; height:36px; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   ITB v19 — compact match experience / theme / interaction pass
+   ───────────────────────────────────────────────────────────── */
+
+.match-experience-page {
+  --match-surface: var(--surface, var(--paper));
+  --match-surface-2: var(--surface-2, var(--paper-2));
+  --match-ink: var(--text, var(--ink));
+  --match-line: var(--line, var(--ink));
+  --match-muted: var(--muted, var(--ink-muted));
+}
+
+/* Setup surfaces: use the active theme rather than legacy translucent fills. */
+.match-experience-page .setup-derived,
+.match-experience-page .setup-panel,
+.match-experience-page .innings-break {
+  background: color-mix(in srgb, var(--match-surface-2) 92%, transparent) !important;
+  color: var(--match-ink) !important;
+  border-color: color-mix(in srgb, var(--match-line) 32%, transparent) !important;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--match-line) 22%, transparent);
+}
+
+.match-experience-page .setup-derived strong,
+.match-experience-page .setup-panel strong,
+.match-experience-page .innings-break strong,
+.match-experience-page .setup-derived label,
+.match-experience-page .setup-panel label {
+  color: var(--match-ink) !important;
+}
+
+.match-experience-page input,
+.match-experience-page select,
+.match-experience-page textarea {
+  color: var(--match-ink);
+  background: var(--match-surface-2);
+  border-color: color-mix(in srgb, var(--match-line) 36%, transparent);
+}
+
+/* Anchored section headings. JavaScript adds .is-condensed while scrolling. */
+.match-experience-page [data-anchor-heading] {
+  position: sticky;
+  top: var(--site-header-height, 72px);
+  z-index: 25;
+  margin-top: 0;
+  padding: 0.8rem 0.1rem 0.65rem;
+  background: color-mix(in srgb, var(--match-surface) 94%, transparent);
+  color: var(--match-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--match-line) 16%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: padding 180ms ease, font-size 180ms ease, letter-spacing 180ms ease,
+    box-shadow 180ms ease, background 180ms ease;
+}
+
+.match-experience-page [data-anchor-heading].is-condensed {
+  padding-top: 0.36rem;
+  padding-bottom: 0.32rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--match-line) 10%, transparent);
+}
+
+/* Keep modal/popup layers above the footer, sticky headers, and page chrome. */
+.match-experience-page .footer-layer,
+.site-shell .footer-layer {
+  z-index: 1 !important;
+}
+
+body > .modal-backdrop,
+.modal-backdrop {
+  z-index: 10001 !important;
+}
+
+body > .modal-backdrop .modal,
+.modal-backdrop .modal {
+  position: relative;
+  z-index: 10002 !important;
+}
+
+body > .pow-layer,
+.pow-layer {
+  z-index: 10010 !important;
+}
+
+body > .network-status,
+.network-status {
+  z-index: 10020 !important;
+}
+
+/* Programme → Drafts: muted, theme-aware hover instead of blue/red blocks. */
+.drafts-half:hover {
+  background: color-mix(in srgb, var(--surface-2, var(--paper-2)) 82%, var(--accent) 18%) !important;
+  color: var(--text, var(--ink)) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.drafts-half:hover .programme-action {
+  background: color-mix(in srgb, var(--surface, var(--paper)) 84%, var(--accent) 16%) !important;
+  color: var(--text, var(--ink)) !important;
+  border-color: color-mix(in srgb, var(--text, var(--ink)) 24%, transparent) !important;
+  box-shadow: none;
+}
+
+/* Retirement state in the wicket counter. */
+.wicket-slot.retired-hurt-slot,
+.retired-hurt-slot {
+  background: color-mix(in srgb, var(--surface-2, var(--paper-2)) 78%, var(--muted, #777) 22%) !important;
+  color: var(--muted, #777) !important;
+  border-color: color-mix(in srgb, var(--muted, #777) 46%, transparent) !important;
+}
+
+.retired-hurt-slot .hurt-mark {
+  color: var(--muted, #777) !important;
+}
+
+/* Tie/super-over actions sit side-by-side with the scorecard action. */
+.result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.result-actions .central-scorecard-button {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+}
+
+.result-actions .super-over-button {
+  margin: 0 !important;
+}
+
+/* Super-over progression remains readable without dominating the result page. */
+.super-over-timeline {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.super-over-stage {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--match-line) 18%, transparent);
+  background: color-mix(in srgb, var(--match-surface-2) 90%, transparent);
+}
+
+.super-over-stage__label {
+  margin-bottom: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--match-muted);
+}
+
+/* Compact mode: prioritize live data and reduce decorative/editorial mass. */
+.match-experience-page .scoreboard-hero {
+  gap: 0.75rem;
+  padding-block: 0.8rem;
+}
+
+.match-experience-page .scoreboard-hero .team-badge.large {
+  min-width: 3.5rem;
+  min-height: 3.2rem;
+}
+
+.match-experience-page .scoreboard-hero .score-main strong {
+  font-size: clamp(2.4rem, 9vw, 4.25rem);
+  line-height: 0.95;
+}
+
+.match-experience-page .compact-player-strip {
+  gap: 0.55rem;
+  margin-block: 0.55rem;
+}
+
+.match-experience-page .compact-player-card {
+  min-height: 3.4rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.match-experience-page .compact-over-strip {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.55rem;
+  gap: 0.35rem;
+}
+
+.match-experience-page .score-controls,
+.match-experience-page .run-pad,
+.match-experience-page .score-actions {
+  gap: 0.45rem;
+}
+
+.match-experience-page .score-controls button,
+.match-experience-page .run-pad button,
+.match-experience-page .score-actions button {
+  min-height: 2.9rem;
+}
+
+.match-experience-page .compact-secondary-row {
+  min-height: 2.8rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.match-experience-page .compact-secondary-row .compact-secondary-row__title {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+}
+
+/* Never let a compact match page create an accidental sideways scroll. */
+.match-experience-page,
+.match-experience-page .site-main,
+.match-experience-page .comic-panel,
+.match-experience-page .scoreboard-hero,
+.match-experience-page .match-columns {
+  max-width: 100%;
+}
+
+.match-experience-page {
+  overflow-x: clip;
+}
+
+@media (max-width: 720px) {
+  .match-experience-page [data-anchor-heading] {
+    top: 58px;
+    padding-top: 0.55rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .match-experience-page [data-anchor-heading].is-condensed {
+    padding-top: 0.3rem;
+    padding-bottom: 0.28rem;
+    font-size: 0.68rem;
+  }
+
+  .match-experience-page .scoreboard-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .match-experience-page .compact-player-strip {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .match-experience-page .compact-over-strip {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .result-actions {
+    gap: 0.55rem;
+  }
+
+  .result-actions > * {
+    width: min(100%, 22rem);
+  }
+
+  .match-experience-page .score-controls button,
+  .match-experience-page .run-pad button,
+  .match-experience-page .score-actions button {
+    min-height: 3rem;
+  }
+}
+
+/* v19: retired-hurt wicket slot and anchored match headings */
+.wicket-count-wrap { display:inline-flex; align-items:center; gap:5px; position:relative; }
+.wicket-count-number { display:inline-block; }
+.retired-hurt-slot { position:relative; display:inline-flex; align-items:center; justify-content:center; min-width:27px; height:27px; padding:2px 5px; background:#7e776c; color:#efeadf; border:2px solid var(--line); box-shadow:2px 3px 0 var(--line); font-family:"Barlow Condensed"; font-size:10px; font-weight:900; }
+.retired-hurt-slot > span { font-size:13px; line-height:1; }
+.retired-hurt-slot > b { position:absolute; top:100%; left:50%; transform:translate(-50%,5px); white-space:nowrap; padding:3px 5px; background:var(--ink); color:var(--paper); border:1px solid var(--line); box-shadow:2px 3px 0 var(--line); font:800 9px/1 "Barlow Condensed"; letter-spacing:.05em; opacity:0; pointer-events:none; transition:opacity .12s ease; }
+.retired-hurt-slot:hover > b, .retired-hurt-slot:focus > b { opacity:1; }
+.scorecard-stage-heading { margin:20px 0 8px; padding:7px 8px; border-top:2px solid var(--line); border-bottom:2px solid var(--line); font:900 10px/1 "Barlow Condensed"; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); }
+.match-experience-page .panel-heading[data-anchor-heading] { position:sticky; top:72px; z-index:12; padding-block:14px 10px; background:color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter:blur(4px); border-bottom:2px solid transparent; transition:padding .16s ease, transform .16s ease, border-color .16s ease; }
+.match-experience-page .panel-heading[data-anchor-heading].is-condensed { padding-block:7px 6px; border-bottom-color:var(--line-soft); }
+.match-experience-page .panel-heading[data-anchor-heading].is-condensed .panel-kicker { font-size:8px; }
+.match-experience-page .panel-heading[data-anchor-heading].is-condensed .comic-title { font-size:clamp(24px,3.6vw,42px); margin-top:3px; }
+html[data-compact="1"] .match-experience-page .panel-heading[data-anchor-heading] { top:64px; }
+html[data-compact="1"] .match-experience-page .panel-heading[data-anchor-heading].is-condensed { padding-block:6px 5px; }
+.retirement-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:12px; }
+.retirement-action { min-height:48px; padding:10px; border:2px solid var(--line); color:var(--ink); box-shadow:4px 5px 0 var(--line); font-family:"Barlow Condensed"; font-size:11px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.retirement-hurt-button { background:var(--blue); }
+.retirement-out-button { background:var(--red); }
+.retirement-return-button { background:var(--accent); color:var(--ink); }
+.retirement-player-choice { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:12px 0; }
+.retirement-player-choice button { min-height:54px; border:2px solid var(--line); background:var(--paper-light); color:var(--ink); box-shadow:3px 4px 0 var(--line); font-family:"Barlow Condensed"; font-size:14px; font-weight:900; }
+.retirement-player-choice button.selected { background:var(--accent); transform:translate(-1px,-1px); box-shadow:5px 6px 0 var(--line); }
+.retirement-eligibility-note { margin-top:12px; padding:10px; border:2px dashed var(--line); background:var(--paper-2); color:var(--ink); font:900 10px/1.35 "Barlow Condensed"; letter-spacing:.07em; text-transform:uppercase; }
+@media(max-width:700px){ .retirement-actions,.retirement-player-choice{ grid-template-columns:1fr; } .match-experience-page .panel-heading[data-anchor-heading]{ top:68px; } }

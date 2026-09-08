@@ -28,8 +28,8 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
-const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v18";
-const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v17"];
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v19";
+const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();
 
@@ -106,6 +106,19 @@ export async function flushPendingWrites() {
   }
 }
 
+
+function normalizeSuperOvers(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((stage, index) => ({
+    ...stage,
+    index: index + 1,
+    stage: "superOver",
+    innings: Array.isArray(stage?.innings)
+      ? stage.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
+      : [],
+    live: { ...emptyMatch().live, ...(stage?.live || {}) }
+  }));
+}
 function normalizeStore(parsed) {
   if (!parsed?.matches) return null;
 
@@ -126,7 +139,8 @@ function normalizeStore(parsed) {
       live: {
         ...emptyMatch().live,
         ...(match.live || {})
-      }
+      },
+      superOvers: normalizeSuperOvers(match?.superOvers)
     };
   }
 
@@ -210,7 +224,8 @@ function normalizeInternalStore(parsed) {
             ...inn,
             deliveries: normalizeDeliveries(inn?.deliveries)
           }))
-        : []
+        : [],
+      superOvers: normalizeSuperOvers(match?.superOvers)
     };
   }
 
@@ -384,11 +399,9 @@ function syncInternalMatch(matchId, match) {
   const normalizedMatch = {
     ...match,
     innings: Array.isArray(match?.innings)
-      ? match.innings.map((inn) => ({
-          ...inn,
-          deliveries: normalizeDeliveries(inn?.deliveries)
-        }))
-      : []
+      ? match.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
+      : [],
+    superOvers: normalizeSuperOvers(match?.superOvers)
   };
 
   const withStats = {
@@ -478,7 +491,8 @@ function normalizeInternalRemoteMatch(
     live: {
       ...emptyMatch().live,
       ...(remote.live || {})
-    }
+    },
+    superOvers: normalizeSuperOvers(remote?.superOvers)
   };
 }
 
@@ -724,11 +738,10 @@ export async function commitMatchUpdate(id, updater, { requireLiveStart = false 
   const normalizedNextBase = {
     ...nextBase,
     innings: Array.isArray(nextBase?.innings)
-      ? nextBase.innings.map((inn) => ({
-          ...inn,
-          deliveries: normalizeDeliveries(inn?.deliveries)
-        }))
-      : []
+      ? nextBase.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
+      : [],
+    superOvers: normalizeSuperOvers(nextBase?.superOvers),
+    live: { ...emptyMatch().live, ...(nextBase?.live || {}) }
   };
   const next = internal
     ? {
@@ -803,11 +816,9 @@ export function patchMatch(id, updater) {
     ...nextBase,
     id,
     innings: Array.isArray(nextBase?.innings)
-      ? nextBase.innings.map((inn) => ({
-          ...inn,
-          deliveries: normalizeDeliveries(inn?.deliveries)
-        }))
+      ? nextBase.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
       : [],
+    superOvers: normalizeSuperOvers(nextBase?.superOvers),
     revision: nextRevision(previous),
     updatedAt: new Date().toISOString()
   };
