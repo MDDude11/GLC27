@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "matches": {
+      ".read": true,
+      ".write": true
+    },
+    "internalMatches": {
+      ".read": true,
+      ".write": true
+    },
+    "internalPlayerStats": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
