@@ -1,8 +1,12 @@
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 18.0.0 internal test build / publish candidate.
+Version 18.0.1 internal test build / publish candidate.
 
-The v18 release includes the complete incremental patch history for v17.5, v17.6, v17.7 and v17.7.1 in the About → Release notes panel.
+The v18 release family includes the complete incremental patch history for v17.5, v17.6, v17.7 and v17.7.1 in the About → Release notes panel.
+
+## v18.0.1 — Scorer render hotfix
+- Fixed a production scorer-render failure where `components.jsx` used `normalizeDeliveries` without importing it, causing `ReferenceError: normalizeDeliveries is not defined`.
+- Kept the v18 Firebase, PWA, offline queue and delivery-normalization architecture unchanged; this patch only restores the scorer component dependency and bumps the service-worker cache.
 
 ## v18.0.0 — Firebase + PWA stability pass
 - Restored the scorer on GitHub Pages by making scorer links use the stable `scorer.html` entry point and strengthening clean-route service-worker fallbacks.

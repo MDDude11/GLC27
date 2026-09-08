@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
 import { flushPendingWrites } from "./store.js";
-import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
+import { computeInnings, fallOfWickets, inningsAnalytics, teamStats, normalizeDeliveries } from "./engine.js";
 
 export function HalftoneField() {
   const canvasRef = useRef(null);

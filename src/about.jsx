@@ -3,6 +3,14 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v18.0.1",
+    items: [
+      "Fixed the scorer page failing during React render because components.jsx referenced normalizeDeliveries without importing it.",
+      "Bumped the PWA service-worker cache so the corrected scorer bundle is treated as a new shell version.",
+      "No scoring rules, Firebase schema or match lifecycle changes were introduced by this patch."
+    ]
+  },
+  {
     version: "ITB v18",
     items: [
       "Restored the scorer on GitHub Pages by routing scorer links through the stable scorer.html entry point and hardening clean-route service-worker fallbacks.",
@@ -10,7 +18,7 @@ const RELEASE_NOTES = [
       "Added a REST polling fallback for live match updates when Firebase realtime subscriptions cannot initialise, while keeping realtime listeners as the preferred path.",
       "Preserved queued offline scorer writes across the v17 → v18 storage-key change and continued automatic retry when connectivity returns.",
       "Completed delivery-shape normalization across remote custom matches so Firebase list/object representations cannot crash scoring or silently erase balls.",
-      "Added a complete incremental release-note history for v17.5, v17.6, v17.7, v17.7.1 and v18."
+      "Added a complete incremental release-note history for v17.5, v17.6, v17.7, v17.7.1, v18.0.0 and v18.0.1."
     ]
   },
   {

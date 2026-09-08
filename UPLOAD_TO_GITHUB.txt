@@ -1,4 +1,4 @@
-GLC27 ITB v18.0.0 — Firebase + PWA stability pass
+GLC27 ITB v18.0.1 — Scorer render hotfix
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
@@ -13,7 +13,7 @@ C:/Users/manis/Downloads/GLC27_v11_FIXED/GLC27_v11_FIXED
 
 COMMIT + PUSH
 git add -A
-git commit -m "Release ITB v18.0.0 Firebase/PWA stability pass"
+git commit -m "Release ITB v18.0.1 scorer render hotfix"
 git push origin main
 git log -2 --oneline
 
