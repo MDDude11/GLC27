@@ -1,11 +1,26 @@
-GLC27 ITB v17.7.1 — scoring hotfix
+GLC27 ITB v18.0.0 — Firebase + PWA stability pass
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
 
-Then run:
-  git add -A
-  git commit -m "Release ITB v17.7.1 scoring hotfix"
-  git push origin main
+VERIFY REPOSITORY BEFORE GIT COMMANDS
+cd /d "C:\Users\manis\Downloads\GLC27_v11_FIXED\GLC27_v11_FIXED"
+git rev-parse --show-toplevel
+git status
 
-GitHub Actions should build and deploy the Pages artifact.
+EXPECTED REPOSITORY ROOT
+C:/Users/manis/Downloads/GLC27_v11_FIXED/GLC27_v11_FIXED
+
+COMMIT + PUSH
+git add -A
+git commit -m "Release ITB v18.0.0 Firebase/PWA stability pass"
+git push origin main
+git log -2 --oneline
+
+GitHub Actions will run:
+  npm ci
+  npm run lint
+  npm run build
+  npm run verify-build
+
+Do not run Git commands from the downloaded/source-folder path unless git rev-parse --show-toplevel confirms the repository root above.

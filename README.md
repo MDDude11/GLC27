@@ -1,37 +1,43 @@
-# GLsiteITB17.7.1 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 17.7.1 internal test build / publish candidate.
+Version 18.0.0 internal test build / publish candidate.
 
-## v17.7.1 scoring hotfix
-- Fixed a live-scoring crash when Firebase returns `deliveries` as an object instead of a JavaScript array.
-- Centralized delivery normalization so numeric-keyed Firebase lists are restored in ball order instead of being discarded.
-- Scorer, local persistence, Firebase hydration, commentary, wicket display and statistics now tolerate array-shaped and object-shaped delivery data.
-- Bumped the service-worker cache version so deployed clients pick up the hotfix shell rather than retaining the v17.6 cache.
+The v18 release includes the complete incremental patch history for v17.5, v17.6, v17.7 and v17.7.1 in the About → Release notes panel.
 
-## What is included
-- Dark-mode standard cards use the dark surface with light text.
-- Long popups clear the sticky navigation; close controls remain visible while content scrolls.
-- Incoming-batter flow has an explicit no-replacement path when no eligible player remains.
-- Toasts render above popup/backdrop layers.
-- Offline state is handled without crashing: buttons grey out and a top-centre connection notice appears. Modal close/cancel controls remain usable so the UI cannot trap the user.
-- Free-hit state persists through wides and other illegal deliveries and expires on the next legal delivery.
-- Reduced Motion removes hover/press/page/modal animation and the halftone pointer field; it defaults on mobile/coarse-pointer devices unless the user has already saved a setting.
-- Firebase Realtime Database is wired to `matches/{matchId}` for live scorer/viewer synchronisation.
-- GitHub Pages deployment workflow is included.
-- Firebase Hosting configuration is included.
+## v18.0.0 — Firebase + PWA stability pass
+- Restored the scorer on GitHub Pages by making scorer links use the stable `scorer.html` entry point and strengthening clean-route service-worker fallbacks.
+- Made Firebase match reads REST-first with a controlled Firebase SDK fallback so scorer startup is not blocked solely by the remote module import path.
+- Added REST polling fallbacks for live match updates and the match archive when Firebase realtime subscriptions cannot initialise.
+- Preserved queued offline scorer writes across the v17 → v18 queue-key migration.
+- Normalized Firebase delivery lists consistently across custom-match reads, writes, scorer state and statistics.
+- Added post-build output verification to CI so all public entry pages and the scorer bundle must exist before deployment.
 
-## Local development
-`npm install`
-`npm run dev`
+## v17.7.1 — Scoring hotfix
+- Fixed the `deliveries is not iterable` live-scorer crash when Firebase returned deliveries as an object.
+- Restored numeric-keyed Firebase delivery objects in their stored order instead of discarding them.
+- Applied delivery normalization across scorer, store, commentary, wicket display and statistics.
+- Bumped the service-worker cache version.
 
-## Build
-`npm run build`
-`npm run preview`
+## v17.7 — Scoring hardening groundwork
+- Introduced centralized delivery normalization for resilient Firebase-backed live scoring.
+- Hardened innings calculations and scorer data handling against inconsistent delivery-list shapes.
+- Kept match rules and the Firebase data model unchanged.
 
-## GitHub Pages
-Push the repository to GitHub, keep the default branch as `main`, and enable **Settings → Pages → GitHub Actions**. The included workflow builds `dist/` and deploys it.
+## v17.6 — PWA + low-network hardening
+- Versioned the service-worker cache and strengthened update checks.
+- Pre-cached public pages and built local assets, including offline extensionless routes.
+- Added a short navigation timeout and static-asset caching strategy for weak networks.
+- Retained the offline match snapshot and queued Firebase-write path.
 
-GitHub Pages builds use `/GLC27/` as the production base. The public site therefore supports the clean homepage at `https://mddude11.github.io/GLC27` plus extensionless routes such as `/GLC27/programme`, `/GLC27/matches`, `/GLC27/match`, `/GLC27/scorer`, `/GLC27/settings`, and `/GLC27/about`. The legacy `.html` entry pages remain available.
+## v17.5 — Performance pass
+- Optimized innings calculations with delivery-array memoization and linear iteration.
+- Reduced halftone rendering work by caching the static dot field and repainting only the affected region.
+- Reduced decorative rendering cost on small screens and deferred below-the-fold match detail painting.
+- No intentional scoring, Firebase, navigation or match-rule changes.
+
+## v17 — PWA + live-state resilience
+- Added installable PWA support, persistent offline Firebase write queue, ordered revisions, race protection, and improved modal/release-note behaviour.
+
 
 ## Firebase Hosting
 Install the CLI with `npm install -g firebase-tools`, then authenticate with `firebase login`. From the repository root:
@@ -97,37 +103,3 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Made modal closing consistent: every shared modal responds to Escape, and long release-note content keeps its close control in a sticky header while the body scrolls independently.
 - Refined the About page so `THE DRAFTS` is the section kicker and `The official player evaluation point` is the main heading, matching the hierarchy of `The Official Tournament`.
 - Added a deterministic project lint gate backed by the TypeScript parser and wired it ahead of the production build in GitHub Actions. This release does not claim third-party ESLint coverage because the environment cannot install new registry packages during offline validation.
-
-
-## v17.5 — Performance pass
-
-- Optimized innings calculations with delivery-array memoization and linear iteration.
-- Reduced halftone pointer rendering work by caching the static dot field and repainting only the magnetic region.
-- Reduced decorative rendering cost on small screens.
-- Deferred below-the-fold match detail sections with content visibility.
-- No scoring, Firebase, navigation, or match behaviour was intentionally changed by the performance pass.
-
-### v17.6 PWA + low-network hardening
-
-- versioned the service-worker cache for a clean update path
-- service-worker update checks bypass the browser HTTP cache
-- precaches all public match pages and discovers their built local assets during installation
-- uses a short network timeout before falling back to cached navigation, avoiding long blank waits on weak connections
-- keeps same-origin static assets available offline with cache-first behaviour and background refresh
-- caches Firebase browser modules and Google font requests after first successful load so repeat visits are lighter on weak networks
-- keeps Firebase authoritative when reachable, while preserving local match state and the queued-write path when the network is unavailable
-- flushes queued scorer writes automatically when connectivity returns
-- retains the v17.5 performance optimizations; no intentional scoring, navigation, or Firebase data-model changes
-
-
-## v17.6 — PWA + low-network hardening
-
-- Versioned the service-worker cache so new deployments invalidate old PWA shell assets.
-- Service-worker registration disables HTTP-cache reuse for update checks and requests an immediate update check.
-- Pre-caches the public HTML/PWA shell and discovers built local script/style assets during installation.
-- Keeps extensionless GitHub Pages routes available from the cached app shell when offline.
-- Uses a short navigation network timeout before falling back to the last cached page, avoiding long blank waits on weak connections.
-- Uses stale-while-revalidate caching for same-origin static assets.
-- Caches Firebase browser modules and Google font resources after a successful online load for better repeat performance in low-network areas.
-- Retains local match snapshots and the persistent queued Firebase write path so scorer work can continue during temporary network loss and sync when connectivity returns.
-- No intentional scoring rules, match schema, navigation, or Firebase authority changes.

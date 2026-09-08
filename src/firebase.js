@@ -24,11 +24,96 @@ function firebaseRestUrl(path = "") {
   return `${base}/${path}.json`;
 }
 
+const FIREBASE_READ_TIMEOUT_MS = 7000;
+const FIREBASE_POLL_MS = 2500;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FIREBASE_READ_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json", ...(options.headers || {}) },
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getFirebaseRest(path = "") {
+  const response = await fetchWithTimeout(firebaseRestUrl(path));
+  if (!response.ok) {
+    throw new Error(`Firebase REST GET failed (${response.status})`);
+  }
+  return response.json();
+}
+
+async function setFirebaseRest(path, value) {
+  const response = await fetchWithTimeout(firebaseRestUrl(path), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(value)
+  });
+  if (!response.ok) {
+    throw new Error(`Firebase REST PUT failed (${response.status})`);
+  }
+  return response.json();
+}
+
+function pollFirebaseMatch(matchId, onMatch, interval = FIREBASE_POLL_MS) {
+  let active = true;
+  let timer = 0;
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const value = await getFirebaseRest(`${MATCHES_ROOT}/${encodeURIComponent(matchId)}`);
+      if (active) onMatch(value ?? null);
+    } catch (error) {
+      if (active) console.warn(`Firebase REST polling failed for ${matchId}.`, error);
+    } finally {
+      if (active) timer = window.setTimeout(poll, interval);
+    }
+  };
+  void poll();
+  return () => {
+    active = false;
+    if (timer) window.clearTimeout(timer);
+  };
+}
+
+function pollFirebaseMatches(onMatches, interval = FIREBASE_POLL_MS) {
+  let active = true;
+  let timer = 0;
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const value = await getFirebaseRest(MATCHES_ROOT);
+      if (active) onMatches(value || {});
+    } catch (error) {
+      if (active) console.warn("Firebase REST match polling failed.", error);
+    } finally {
+      if (active) timer = window.setTimeout(poll, interval);
+    }
+  };
+  void poll();
+  return () => {
+    active = false;
+    if (timer) window.clearTimeout(timer);
+  };
+}
+
 async function loadFirebase() {
   if (!firebasePromise) {
-    firebasePromise = Promise.all([
-      import("https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js")
+    firebasePromise = Promise.race([
+      Promise.all([
+        import("https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js")
+      ]),
+      new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error("Firebase SDK load timed out.")), FIREBASE_READ_TIMEOUT_MS);
+      })
     ]).then(([appModule, databaseModule]) => {
       const app = appModule.initializeApp(firebaseConfig);
       const database = databaseModule.getDatabase(app, firebaseConfig.databaseURL);
@@ -40,6 +125,9 @@ async function loadFirebase() {
         get: databaseModule.get,
         set: databaseModule.set
       };
+    }).catch((error) => {
+      firebasePromise = undefined;
+      throw error;
     });
   }
 
@@ -55,8 +143,8 @@ export async function watchFirebaseConnection(onChange) {
       (snapshot) => onChange(snapshot.val() === true)
     );
   } catch (error) {
-    console.warn("Firebase connection could not be initialised.", error);
-    onChange(false);
+    console.warn("Firebase realtime connection monitor unavailable; using browser connectivity as fallback.", error);
+    onChange(navigator.onLine !== false);
     return () => {};
   }
 }
@@ -70,102 +158,117 @@ export async function subscribeFirebaseMatch(matchId, onMatch, onError) {
   try {
     const { database, ref, onValue } = await loadFirebase();
 
-    return onValue(
+    let fallbackUnsubscribe = null;
+    const sdkUnsubscribe = onValue(
       ref(database, `${MATCHES_ROOT}/${matchId}`),
       (snapshot) => {
         onMatch(snapshot.exists() ? snapshot.val() : null);
       },
       (error) => {
         console.warn(
-          `Firebase match subscription failed for ${matchId}.`,
+          `Firebase realtime match subscription failed for ${matchId}; switching to REST polling.`,
           error
         );
         onError?.(error);
+        fallbackUnsubscribe ||= pollFirebaseMatch(matchId, onMatch);
       }
     );
+    return () => {
+      sdkUnsubscribe?.();
+      fallbackUnsubscribe?.();
+    };
   } catch (error) {
     console.warn(
-      `Firebase match subscription could not start for ${matchId}.`,
+      `Firebase realtime subscription unavailable for ${matchId}; using REST polling.`,
       error
     );
     onError?.(error);
-    return () => {};
+    return pollFirebaseMatch(matchId, onMatch);
   }
 }
 
 export async function writeFirebaseMatch(matchId, match) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(
-      firebaseRestUrl(`${MATCHES_ROOT}/${encodeURIComponent(matchId)}`),
-      {
-        method: "PUT",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(match),
-        signal: controller.signal
-      }
-    );
-    if (!response.ok) throw new Error(`Firebase REST PUT failed (${response.status})`);
-    return response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
+  return setFirebaseRest(`${MATCHES_ROOT}/${encodeURIComponent(matchId)}`, match);
 }
 
 export async function seedFirebaseMatch(matchId, match) {
+  const path = `${MATCHES_ROOT}/${encodeURIComponent(matchId)}`;
   try {
-    const { database, ref, get, set } = await loadFirebase();
-    const matchRef = ref(database, `${MATCHES_ROOT}/${matchId}`);
-    const snapshot = await get(matchRef);
-
-    if (snapshot.exists()) return snapshot.val();
-
-    await set(matchRef, match);
-    return match;
-  } catch (error) {
-    console.warn(`Firebase could not seed ${matchId}.`, error);
-    return null;
+    const existing = await getFirebaseRest(path);
+    if (existing != null) return existing;
+    const saved = await setFirebaseRest(path, match);
+    const verified = await getFirebaseRest(path);
+    if (verified == null) throw new Error(`Firebase did not persist ${matchId}.`);
+    return saved ?? verified;
+  } catch (restError) {
+    console.warn(`Firebase REST seed failed for ${matchId}; trying SDK.`, restError);
+    try {
+      const { database, ref, get, set } = await loadFirebase();
+      const matchRef = ref(database, path);
+      const snapshot = await get(matchRef);
+      if (snapshot.exists()) return snapshot.val();
+      await set(matchRef, match);
+      const verified = await get(matchRef);
+      return verified.exists() ? verified.val() : null;
+    } catch (sdkError) {
+      console.warn(`Firebase could not seed ${matchId}.`, sdkError);
+      return null;
+    }
   }
 }
 
 export async function listFirebaseMatches() {
-  const { database, ref, get } = await loadFirebase();
-  const snapshot = await get(ref(database, MATCHES_ROOT));
-  return snapshot.exists() ? (snapshot.val() || {}) : {};
+  try {
+    return (await getFirebaseRest(MATCHES_ROOT)) || {};
+  } catch (restError) {
+    console.warn("Firebase REST match-list read failed; trying SDK.", restError);
+    const { database, ref, get } = await loadFirebase();
+    const snapshot = await get(ref(database, MATCHES_ROOT));
+    return snapshot.exists() ? (snapshot.val() || {}) : {};
+  }
 }
 
 export async function subscribeFirebaseMatches(onMatches, onError) {
   try {
     const { database, ref, onValue } = await loadFirebase();
 
-    return onValue(
+    let fallbackUnsubscribe = null;
+    const sdkUnsubscribe = onValue(
       ref(database, MATCHES_ROOT),
       (snapshot) => onMatches(snapshot.exists() ? (snapshot.val() || {}) : {}),
       (error) => {
-        console.warn("Firebase match collection subscription failed.", error);
+        console.warn("Firebase realtime match collection failed; switching to REST polling.", error);
         onError?.(error);
+        fallbackUnsubscribe ||= pollFirebaseMatches(onMatches);
       }
     );
+    return () => {
+      sdkUnsubscribe?.();
+      fallbackUnsubscribe?.();
+    };
   } catch (error) {
-    console.warn("Firebase match collection subscription could not start.", error);
+    console.warn("Firebase realtime match collection unavailable; using REST polling.", error);
     onError?.(error);
-    return () => {};
+    return pollFirebaseMatches(onMatches);
   }
 }
 
 export async function deleteFirebaseMatch(matchId) {
-  const { database, ref, get, set } = await loadFirebase();
-  const matchRef = ref(database, `${MATCHES_ROOT}/${matchId}`);
-
-  await set(matchRef, null);
-  const verified = await get(matchRef);
-  if (verified.exists()) {
-    throw new Error(`Firebase did not delete match ${matchId}.`);
+  const path = `${MATCHES_ROOT}/${encodeURIComponent(matchId)}`;
+  try {
+    await setFirebaseRest(path, null);
+    const verified = await getFirebaseRest(path);
+    if (verified != null) throw new Error(`Firebase did not delete match ${matchId}.`);
+    return true;
+  } catch (restError) {
+    console.warn(`Firebase REST delete failed for ${matchId}; trying SDK.`, restError);
+    const { database, ref, get, set } = await loadFirebase();
+    const matchRef = ref(database, path);
+    await set(matchRef, null);
+    const verified = await get(matchRef);
+    if (verified.exists()) throw new Error(`Firebase did not delete match ${matchId}.`);
+    return true;
   }
-
-  return true;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -286,11 +389,21 @@ export async function seedFirebaseInternalMatch(matchId, match) {
 }
 
 export async function getFirebaseInternalMatch(matchId) {
-  const { database, ref, get } = await loadFirebase();
-  const targetRef = ref(database, `${MATCHES_ROOT}/${matchId}`);
-  const snapshot = await get(targetRef);
+  const path = `${MATCHES_ROOT}/${encodeURIComponent(matchId)}`;
+  try {
+    const remote = await getFirebaseRest(path);
+    if (remote != null) return remote;
+  } catch (restError) {
+    console.warn(`Firebase REST read failed for ${matchId}; trying SDK.`, restError);
+  }
 
-  if (snapshot.exists()) return snapshot.val();
+  try {
+    const { database, ref, get } = await loadFirebase();
+    const snapshot = await get(ref(database, path));
+    if (snapshot.exists()) return snapshot.val();
+  } catch (sdkError) {
+    console.warn(`Firebase SDK read failed for ${matchId}.`, sdkError);
+  }
 
   try {
     return await migrateLegacyInternalMatch(matchId);

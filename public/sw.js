@@ -1,4 +1,4 @@
-const CACHE = "glc27-v17-7-1-shell-v1";
+const CACHE = "glc27-v18-shell-v1";
 const BASE = new URL("./", self.registration.scope).pathname;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const LOCAL_PAGES = [
@@ -136,16 +136,18 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate" && sameOrigin) {
     event.respondWith((async () => {
-      const cached = await caches.match(request);
+      const cache = await caches.open(CACHE);
+      const cachedExact = await cache.match(request);
+      const cachedPath = await cache.match(new Request(url.origin + url.pathname));
       try {
         const response = await networkWithTimeout(request);
         if (response.ok) {
-          const cache = await caches.open(CACHE);
           void cache.put(request, response.clone());
+          return response;
         }
-        return response;
+        return cachedExact || cachedPath || await cache.match(absolute("404.html"));
       } catch {
-        return cached || await caches.match(absolute("404.html"));
+        return cachedExact || cachedPath || await cache.match(absolute("404.html"));
       }
     })());
     return;

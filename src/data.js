@@ -173,7 +173,7 @@ export const matchPath = (id) =>
   sitePath(`/match?match=${encodeURIComponent(id)}`);
 
 export const scorerPath = (id) =>
-  sitePath(`/scorer?match=${encodeURIComponent(id)}`);
+  sitePath(`/scorer.html?match=${encodeURIComponent(id)}`);
 
 export function emptyLive() {
   return {

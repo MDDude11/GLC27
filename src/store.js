@@ -28,7 +28,8 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
-const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v17";
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v18";
+const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();
 
@@ -45,12 +46,21 @@ function writeFirebaseMatchInOrder(matchId, match) {
 
 function readWriteQueue() {
   if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  const merged = new Map();
+  for (const key of [WRITE_QUEUE_KEY, ...LEGACY_WRITE_QUEUE_KEYS]) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!Array.isArray(parsed)) continue;
+      for (const entry of parsed) {
+        if (!entry?.matchId) continue;
+        const current = merged.get(entry.matchId);
+        if (!current || Number(entry.revision) >= Number(current.revision)) {
+          merged.set(entry.matchId, entry);
+        }
+      }
+    } catch {}
   }
+  return [...merged.values()];
 }
 
 function saveWriteQueue(queue) {
@@ -461,12 +471,7 @@ function normalizeInternalRemoteMatch(
         ? remote.innings.map((inn) => ({
             ...inn,
 
-            deliveries:
-              Array.isArray(
-                inn?.deliveries
-              )
-                ? inn.deliveries
-                : []
+            deliveries: normalizeDeliveries(inn?.deliveries)
           }))
         : [],
 
