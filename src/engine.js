@@ -11,6 +11,24 @@ export const isRecordedWicket = (d) => Boolean(d.wicket) && !d.deadBall || isRet
 const blankBatter = () => ({ runs: 0, balls: 0, fours: 0, sixes: 0, out: false, dismissal: "", retired: false });
 const blankBowler = () => ({ balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 });
 
+// Older Super Over records could retain the previous stage's live player names.
+// Keep the record usable without changing any delivery or scoring rules.
+export function repairLiveForTeams(stage, teams = TEAMS) {
+  if (!stage) return stage;
+  const innings = Array.isArray(stage.innings) ? stage.innings : [];
+  const current = innings.at(-1);
+  const battingPlayers = [...new Set(teams[current?.battingTeam || stage.battingFirst]?.players || [])];
+  const bowlingPlayers = [...new Set(teams[current?.bowlingTeam || stage.bowlingFirst]?.players || [])];
+  if (!battingPlayers.length && !bowlingPlayers.length) return stage;
+  const live = { striker: "", nonStriker: "", bowler: "", previousBowler: "", freeHit: false, retiredHurt: [], ...(stage.live || {}) };
+  const striker = live.striker && battingPlayers.includes(live.striker) ? live.striker : (live.striker ? battingPlayers[0] || "" : "");
+  const nonStriker = live.nonStriker && battingPlayers.includes(live.nonStriker) && live.nonStriker !== striker
+    ? live.nonStriker
+    : (live.nonStriker ? battingPlayers.find((player) => player !== striker) || "" : "");
+  const bowler = live.bowler && bowlingPlayers.includes(live.bowler) ? live.bowler : (live.bowler ? bowlingPlayers[0] || "" : "");
+  return { ...stage, live: { ...live, striker, nonStriker, bowler } };
+}
+
 const inningsCache = new WeakMap();
 
 // Firebase Realtime Database can return list-shaped data as an object.

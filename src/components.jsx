@@ -212,6 +212,7 @@ function usePressFX() {
 
     const spawn = (x, y, target) => {
       if (settingsNow().reduceMotion) return;
+      if (target.closest(".match-experience-page")) return;
       const isPow = target.closest(POW_SELECTOR);
       const isSpark = !isPow && target.closest(SPARK_SELECTOR);
       if (!isPow && !isSpark) return;
@@ -304,26 +305,9 @@ function usePressFX() {
 }
 function useComicNavigation() {
   useEffect(() => {
-    const supportsVT = typeof document.startViewTransition === "function";
-    const reduceMotion = typeof document !== "undefined" && document.documentElement.dataset.reduceMotion === "1";
-    if (!supportsVT || reduceMotion) return undefined;
-    const onClick = (event) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      if (document.documentElement.dataset.reduceMotion === "1") return;
-      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!link || link.target === "_blank") return;
-      const href = link.getAttribute("href") || "";
-      if (!href || href.startsWith("#")) return;
-      let url;
-      try { url = new URL(href, window.location.href); } catch { return; }
-      if (url.origin !== window.location.origin || url.pathname.endsWith(".html")) return;
-      event.preventDefault();
-      document.startViewTransition(() => {
-        window.location.href = href;
-      });
-    };
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
+    // Native navigation is intentionally used here. The previous View Transition
+    // wrapper delayed rapid page switches and made scoring controls feel sticky.
+    return undefined;
   }, []);
 }
 
@@ -391,21 +375,29 @@ export function SiteFrame({ children, active = "" }) {
   useComicNavigation();
   useConnectivityStatus();
   useEffect(() => {
+    let frame = 0;
+    let headings = [];
     const update = () => {
-      const topbar = document.querySelector(".topbar");
-      const top = (topbar?.getBoundingClientRect().bottom || 58) + 10;
-      document.querySelectorAll(".match-experience-page .panel-heading[data-anchor-heading]").forEach((heading) => {
-        const rect = heading.getBoundingClientRect();
-        heading.classList.toggle("is-condensed", rect.top <= top && rect.bottom > top + 8);
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const topbar = document.querySelector(".topbar");
+        const top = (topbar?.getBoundingClientRect().bottom || 58) + 10;
+        headings.forEach((heading) => {
+          const rect = heading.getBoundingClientRect();
+          heading.classList.toggle("is-condensed", rect.top <= top && rect.bottom > top + 8);
+        });
       });
     };
+    const collect = () => { headings = [...document.querySelectorAll(".match-experience-page .panel-heading[data-anchor-heading]")]; update(); };
     window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update, { passive: true });
-    const timer = window.setTimeout(update, 0);
+    window.addEventListener("resize", collect, { passive: true });
+    const timer = window.setTimeout(collect, 0);
     return () => {
       window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("resize", collect);
       window.clearTimeout(timer);
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, []);
   return <div className="site-shell">

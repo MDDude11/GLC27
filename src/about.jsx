@@ -3,6 +3,17 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v21",
+    items: [
+      "Fixed the public viewer crash caused by a missing MAX_WICKETS import.",
+      "Made compact mode a true information-at-a-glance presentation while keeping scoring behaviour unchanged.",
+      "Hardened retirement, wicket and incoming-player selection so eligible batters remain selectable after each dismissal type.",
+      "Made Super Over teams and opening-player choices derive from the tied stage, with duplicate-player and wrong-team starts rejected.",
+      "Improved setup-card theming, dark-mode bowler-choice contrast, over-strip readability and interaction smoothness.",
+      "No scoring rules, Firebase schema or ordinary match lifecycle semantics were intentionally changed."
+    ]
+  },
+  {
     version: "ITB v19",
     items: [
       "Added recursive Super Over scoring for tied matches, with the same match record retaining the main match and every Super Over stage.",

@@ -1,8 +1,8 @@
-# v19 — Match experience + Super Over release
+# v21 — Match experience + Super Over reliability release
 
-ITB v19 adds recursive Super Over scoring, restores the dedicated v17.1 retirement flow, and applies the compact match-experience redesign across scorer and public match views. It also fixes setup theming, anchored/condensed section headers, modal stacking, the Programme Drafts hover treatment, and the magnetic halftone enlargement. The service-worker shell is versioned to `glc27-v19-shell-v1`.
+ITB v21 keeps the v19 scoring model intact while fixing the public viewer render crash, making compact mode a true information-at-a-glance presentation, hardening retirement/new-player flows, and making Super Over team selection explicit. The service-worker shell is versioned to `glc27-v21-shell-v1`.
 
-## v19.0.0 — Match experience + recursive Super Overs
+## v21.0.0 — Match experience + recursive Super Overs
 - Tied main matches expose **BEGIN SUPER OVER** beside **VIEW SCORECARD**.
 - Tied Super Overs recursively expose the same action for the next Super Over with no arbitrary depth limit.
 - Main match and every Super Over remain attached to the same Firebase match record and appear in progression/scorecard views.
@@ -12,6 +12,10 @@ ITB v19 adds recursive Super Over scoring, restores the dedicated v17.1 retireme
 - Added anchored section headers that condense while scrolling.
 - Removed Pace/Spin setup selection and made setup surfaces theme-aware.
 - Put popup layers above the footer/page chrome, softened Programme Drafts hover styling, and fixed magnetic halftone dots to enlarge the original dots without duplicate under-dots.
+- Fixed the viewer `MAX_WICKETS` production reference error.
+- Made compact mode presentation-only, with smaller live cards, a beside-the-cards over strip, collapsed commentary/scorecard rows, touch-safe controls, and mobile reflow.
+- Prevented duplicate striker/non-striker choices, stale dismissed-player choices, wrong-team Super Over setup, and dark-mode bowler text loss.
+- Reduced interaction overhead during scrolling, rapid scoring, and page changes.
 
 
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*

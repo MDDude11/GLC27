@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { MATCHES, MAX_OVERS, SUPER_OVER_MAX_OVERS, SUPER_OVER_MAX_WICKETS, scorerPath, TEAMS, sitePath } from "./data.js";
-import { computeInnings, activeBatters, currentBowler } from "./engine.js";
+import { MATCHES, MAX_OVERS, MAX_WICKETS, SUPER_OVER_MAX_OVERS, SUPER_OVER_MAX_WICKETS, scorerPath, TEAMS, sitePath } from "./data.js";
+import { computeInnings, activeBatters, currentBowler, repairLiveForTeams } from "./engine.js";
 import { getMatch, resolveMatchFixture } from "./store.js";
 import { subscribeFirebaseMatch } from "./firebase.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, PlayerStats, ScorecardModal, Modal, WicketCount } from "./components.jsx";
@@ -20,7 +20,7 @@ const normalise = (match, fallback = {}) => ({
   ...fallback,
   ...(match || {}),
   innings: Array.isArray(match?.innings) ? match.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) })) : [],
-  superOvers: Array.isArray(match?.superOvers) ? match.superOvers.map((stage, index) => ({ ...stage, index: index + 1, innings: Array.isArray(stage?.innings) ? stage.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) })) : [], live: { retiredHurt: [], ...(stage?.live || {}) } })) : [],
+  superOvers: Array.isArray(match?.superOvers) ? match.superOvers.map((stage, index) => repairLiveForTeams({ ...stage, index: index + 1, innings: Array.isArray(stage?.innings) ? stage.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) })) : [], live: { retiredHurt: [], ...(stage?.live || {}) } }, match?.teams || TEAMS)) : [],
   live: { striker: "", nonStriker: "", bowler: "", previousBowler: "", freeHit: false, retiredHurt: [], ...(match?.live || {}) }
 });
 

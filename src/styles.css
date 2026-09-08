@@ -608,6 +608,7 @@ html[data-compact="1"] .modal-heading { padding:14px 16px 10px; }
 html[data-compact="1"] .modal-scroll-content { padding:14px 16px; }
 html[data-compact="1"] .scorer-lower { gap:12px; margin-top:12px; }
 html[data-compact="1"] .run-pad { gap:6px; }
+.compact-secondary-row { display:none; }
 .about-stack { display:grid; gap:20px; }
 .about-hero { min-height:260px; }
 .about-columns article { min-height:250px; }
@@ -2226,3 +2227,93 @@ html[data-compact="1"] .match-experience-page .panel-heading[data-anchor-heading
 .retirement-player-choice button.selected { background:var(--accent); transform:translate(-1px,-1px); box-shadow:5px 6px 0 var(--line); }
 .retirement-eligibility-note { margin-top:12px; padding:10px; border:2px dashed var(--line); background:var(--paper-2); color:var(--ink); font:900 10px/1.35 "Barlow Condensed"; letter-spacing:.07em; text-transform:uppercase; }
 @media(max-width:700px){ .retirement-actions,.retirement-player-choice{ grid-template-columns:1fr; } .match-experience-page .panel-heading[data-anchor-heading]{ top:68px; } }
+
+/* v21 compact match layout and interaction polish. */
+.compact-innings-identity { display:none; align-items:center; gap:7px; }
+.compact-innings-identity .team-badge { min-width:2.3rem; min-height:2rem; padding:4px 7px; }
+.compact-innings-identity .team-badge span { font-size:15px; }
+.compact-innings-identity b { font:900 12px/1 "Barlow Condensed"; letter-spacing:.1em; }
+
+html[data-compact="1"] .match-experience-page .active-panel .panel-heading .comic-title { display:none; }
+html[data-compact="1"] .match-experience-page .active-panel .compact-innings-identity { display:flex; }
+html[data-compact="1"] .match-experience-page .active-panel .live-chip { display:none; }
+html[data-compact="1"] .match-experience-page .compact-player-strip {
+  grid-template-columns:repeat(3,minmax(120px,1fr)) minmax(190px,1.15fr);
+  align-items:stretch;
+}
+html[data-compact="1"] .match-experience-page .compact-player-card { min-height:3.4rem; }
+html[data-compact="1"] .match-experience-page .compact-over-strip {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  min-width:0;
+  min-height:3.4rem;
+  padding:.45rem .6rem;
+  gap:.45rem .7rem;
+  border:2px solid var(--line);
+  background:color-mix(in srgb,var(--surface-2) 90%,var(--accent) 10%);
+  color:var(--text);
+  font:800 11px/1 "Barlow Condensed";
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+html[data-compact="1"] .match-experience-page .compact-over-strip span { white-space:nowrap; }
+html[data-compact="1"] .match-experience-page .compact-over-strip b { color:var(--text-muted); font-size:9px; letter-spacing:.1em; }
+html[data-compact="1"] .match-experience-page .compact-over-strip .is-free-hit { color:var(--accent); }
+html[data-compact="1"] .match-experience-page .scorer-lower .panel-heading,
+html[data-compact="1"] .match-experience-page .viewer-columns .panel-heading { display:none; }
+html[data-compact="1"] .match-experience-page .scorer-lower .compact-secondary-row,
+html[data-compact="1"] .match-experience-page .viewer-columns .compact-secondary-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-height:2.8rem;
+  padding:.55rem .75rem;
+  border:2px solid color-mix(in srgb,var(--match-line) 28%,transparent);
+  background:color-mix(in srgb,var(--match-surface-2) 90%,transparent);
+}
+html[data-compact="1"] .match-experience-page .scorer-lower .comic-panel,
+html[data-compact="1"] .match-experience-page .viewer-columns .comic-panel { padding:0; }
+
+/* The normal presentation keeps the editorial scale; only the user-selected
+   compact mode gets the dense controls above. */
+html:not([data-compact="1"]) .match-experience-page .scoreboard-hero { gap:18px; padding-block:22px; }
+html:not([data-compact="1"]) .match-experience-page .scoreboard-hero .score-main strong { font-size:76px; }
+html:not([data-compact="1"]) .match-experience-page .compact-player-strip { gap:12px; margin-block:0; grid-template-columns:repeat(3,minmax(0,1fr)); }
+html:not([data-compact="1"]) .match-experience-page .compact-player-card { min-height:122px; padding:17px; }
+html:not([data-compact="1"]) .match-experience-page .run-pad { gap:8px; }
+
+/* Dark mode must keep selectable player text readable on the light cards. */
+html:not([data-theme="light"]) .bowler-modal .player-pick,
+html:not([data-theme="light"]) .bowler-modal .player-pick b,
+html:not([data-theme="light"]) .bowler-modal .player-pick small,
+html:not([data-theme="light"]) .bowler-modal .player-pick span {
+  color:var(--ink) !important;
+  text-shadow:none !important;
+}
+html:not([data-theme="light"]) .bowler-modal .player-pick.locked,
+html:not([data-theme="light"]) .bowler-modal .player-pick.locked b,
+html:not([data-theme="light"]) .bowler-modal .player-pick.locked small,
+html:not([data-theme="light"]) .bowler-modal .player-pick.locked span {
+  color:#6a6257 !important;
+}
+
+/* Setup cards inherit the selected theme instead of a fixed legacy fill. */
+.match-experience-page .setup-derived {
+  background:color-mix(in srgb,var(--surface) 86%,var(--accent) 14%) !important;
+  border-color:color-mix(in srgb,var(--accent) 38%,var(--match-line)) !important;
+  color:var(--match-ink) !important;
+}
+.match-experience-page .setup-derived span { color:var(--match-muted) !important; }
+.match-experience-page .setup-pending { min-height:0; padding:16px 18px; }
+
+@media (max-width:900px) and (min-width:721px) {
+  html[data-compact="1"] .match-experience-page .compact-player-strip { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  html[data-compact="1"] .match-experience-page .compact-over-strip { grid-column:1/-1; }
+}
+
+@media (max-width:720px) {
+  html[data-compact="1"] .match-experience-page .compact-player-strip { grid-template-columns:1fr; }
+  html[data-compact="1"] .match-experience-page .compact-over-strip { grid-column:auto; justify-content:flex-start; }
+}

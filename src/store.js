@@ -28,8 +28,9 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
-const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v19";
-const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v21";
+const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v19"];
+const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v20", "glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();
 
@@ -47,7 +48,7 @@ function writeFirebaseMatchInOrder(matchId, match) {
 function readWriteQueue() {
   if (typeof window === "undefined") return [];
   const merged = new Map();
-  for (const key of [WRITE_QUEUE_KEY, ...LEGACY_WRITE_QUEUE_KEYS]) {
+  for (const key of [WRITE_QUEUE_KEY, ...PREVIOUS_WRITE_QUEUE_KEYS, ...LEGACY_WRITE_QUEUE_KEYS]) {
     try {
       const parsed = JSON.parse(localStorage.getItem(key) || "[]");
       if (!Array.isArray(parsed)) continue;

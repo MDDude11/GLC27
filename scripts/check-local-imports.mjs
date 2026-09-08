@@ -1,11 +1,12 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, extname, dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 let ts;
 try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript/lib/typescript.js'); }
 
-const root = resolve(new URL('../', import.meta.url).pathname);
+const root = fileURLToPath(new URL('../', import.meta.url));
 const src = join(root, 'src');
 const names = new Map();
 for (const file of readdirSync(src)) {

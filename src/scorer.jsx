@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MATCHES,
   MAX_OVERS,
@@ -14,7 +14,7 @@ import {
   scorerPath,
   sitePath
 } from "./data.js";
-import { clone, computeInnings, describeResult } from "./engine.js";
+import { clone, computeInnings, describeResult, repairLiveForTeams } from "./engine.js";
 import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
 import {
   SiteFrame,
@@ -41,15 +41,28 @@ const deliveryList = (value = []) => {
 const unique = (items) => [...new Set((items || []).filter(Boolean))];
 const DISMISSAL_TYPES = ["Bowled", "Caught", "LBW", "Run Out", "Hit Wicket", "Stumped"];
 
+function validOpeningSetup(setup, battingTeam, bowlingTeam, teams) {
+  const batters = unique(teams[battingTeam]?.players || []);
+  const bowlers = unique(teams[bowlingTeam]?.players || []);
+  return Boolean(
+    setup?.striker &&
+    setup?.nonStriker &&
+    setup.striker !== setup.nonStriker &&
+    batters.includes(setup.striker) &&
+    batters.includes(setup.nonStriker) &&
+    bowlers.includes(setup.bowler)
+  );
+}
+
 function originFromEvent(event) {
   const r = event?.currentTarget?.getBoundingClientRect?.();
   if (!r) return null;
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-function normaliseStage(raw, index) {
+function normaliseStage(raw, index, teams = TEAMS) {
   const fallback = emptyStage(index);
-  return {
+  return repairLiveForTeams({
     ...fallback,
     ...(raw || {}),
     index,
@@ -60,7 +73,7 @@ function normaliseStage(raw, index) {
     live: { ...fallback.live, ...(raw?.live || {}) },
     maxOvers: SUPER_OVER_MAX_OVERS,
     maxWickets: SUPER_OVER_MAX_WICKETS
-  };
+  }, teams);
 }
 
 function stageResult(stage) {
@@ -132,8 +145,9 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const [scorecardOrigin, setScorecardOrigin] = useState(null);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnPlayer, setReturnPlayer] = useState("");
+  const preparingSuperRef = useRef(false);
 
-  const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1)) : [];
+  const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1, teams)) : [];
   const currentStage = isSuper ? (rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex)) : {
     index: 0,
     stage: "main",
@@ -194,38 +208,47 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   };
 
   const ensureSuperStage = async () => {
-    if (!isSuper || rootSuperOvers[superOverIndex - 1]) return rootSuperOvers[superOverIndex - 1] || currentStage;
+    if (!isSuper || preparingSuperRef.current) return rootSuperOvers[superOverIndex - 1] || currentStage;
+    const existing = rootSuperOvers[superOverIndex - 1];
+    if (existing?.battingFirst && existing?.bowlingFirst) return existing;
+    preparingSuperRef.current = true;
     const prior = superOverIndex === 1 ? {
       innings: state.innings || [],
       result: state.result || null
-    } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1);
+    } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1, teams);
     const priorResult = prior.result || stageResult(prior);
     if (priorResult?.winner !== "tie") {
+      preparingSuperRef.current = false;
       setToast("A Super Over can only begin after the previous stage is tied");
       return null;
     }
     const previousSecond = prior.innings?.[1]?.battingTeam || "";
     const previousFirst = prior.innings?.[0]?.battingTeam || "";
     if (!previousSecond || !previousFirst) {
+      preparingSuperRef.current = false;
       setToast("The previous tied stage must be complete before starting a Super Over");
       return null;
     }
-    const stage = emptyStage(superOverIndex);
-    stage.status = "upcoming";
-    stage.innings = [];
-    const result = await commitMatchUpdate(matchId, (current) => ({
-      ...current,
-      superOvers: [...(current.superOvers || []), { ...stage, battingFirst: previousSecond, bowlingFirst: previousFirst }]
-    }), { requireLiveStart: false });
-    pushResult(result, `Super Over ${superOverIndex} is ready`);
-    return stage;
+    const stage = { ...(existing || emptyStage(superOverIndex)), battingFirst: existing?.battingFirst || previousSecond, bowlingFirst: existing?.bowlingFirst || previousFirst };
+    try {
+      const result = await commitMatchUpdate(matchId, (current) => ({
+        ...current,
+        superOvers: replaceStage(current.superOvers, superOverIndex - 1, stage)
+      }), { requireLiveStart: false });
+      pushResult(result, `Super Over ${superOverIndex} is ready`);
+      return stage;
+    } finally {
+      preparingSuperRef.current = false;
+    }
   };
 
   useEffect(() => {
-    if (isSuper && !rootSuperOvers[superOverIndex - 1] && state.result?.winner === "tie") {
+    const configuredStage = rootSuperOvers[superOverIndex - 1];
+    const priorIsTied = superOverIndex === 1 ? state.result?.winner === "tie" : stageResult(rootSuperOvers[superOverIndex - 2])?.winner === "tie";
+    if (isSuper && (!configuredStage?.battingFirst || !configuredStage?.bowlingFirst) && priorIsTied) {
       void ensureSuperStage();
     }
-  }, [isSuper, superOverIndex, rootSuperOvers.length, state.result?.winner]);
+  }, [isSuper, superOverIndex, rootSuperOvers.length, rootSuperOvers[superOverIndex - 1]?.battingFirst, rootSuperOvers[superOverIndex - 1]?.bowlingFirst, state.result?.winner, rootSuperOvers[superOverIndex - 2]?.result?.winner]);
 
   const saveStage = (stage) => {
     if (!isSuper) {
@@ -244,6 +267,10 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const startMainFirstInnings = async (setup) => {
     const batting = setup.batting;
     const bowling = batting === fixture.t1 ? fixture.t2 : fixture.t1;
+    if (!validOpeningSetup(setup, batting, bowling, teams)) {
+      setToast("Choose two different batters and a bowler from the correct teams");
+      return;
+    }
     try {
       const result = await commitMatchUpdate(matchId, {
         status: "live",
@@ -266,6 +293,10 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     if (!first) return;
     const nextBatting = first.bowlingTeam;
     const nextBowling = first.battingTeam;
+    if (!validOpeningSetup(setup, nextBatting, nextBowling, teams)) {
+      setToast("Choose two different batters and a bowler from the correct teams");
+      return;
+    }
     const result = patchMatch(matchId, (current) => ({
       ...current,
       status: "live",
@@ -277,7 +308,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
   const startSuperFirstInnings = (setup) => {
     const stage = rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex);
-    const prior = superOverIndex === 1 ? { innings: state.innings || [], result: state.result || null } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1);
+    const prior = superOverIndex === 1 ? { innings: state.innings || [], result: state.result || null } : normaliseStage(rootSuperOvers[superOverIndex - 2], superOverIndex - 1, teams);
     const priorResult = prior.result || stageResult(prior);
     if (priorResult?.winner !== "tie") {
       setToast("This Super Over is only available after a tied stage");
@@ -289,6 +320,10 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
       setToast("Could not establish Super Over teams from the tied stage");
       return;
     }
+    if (!validOpeningSetup(setup, batting, bowling, teams)) {
+      setToast("Choose two different batters and a bowler from the correct teams");
+      return;
+    }
     const nextStage = { ...stage, status: "live", innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [], maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS }], live: { ...emptyLive(), striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler }, result: null };
     saveStage(nextStage);
     setToast(`Super Over ${superOverIndex} is live`);
@@ -298,6 +333,10 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     const stage = rootSuperOvers[superOverIndex - 1];
     if (!stage?.innings?.[0]) return;
     const first = stage.innings[0];
+    if (!validOpeningSetup(setup, first.bowlingTeam, first.battingTeam, teams)) {
+      setToast("Choose two different batters and a bowler from the correct teams");
+      return;
+    }
     const nextStage = {
       ...stage,
       status: "live",
@@ -338,7 +377,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
     let incomingSlot = "";
     const result = patchMatch(matchId, (current) => {
-      const stage = isSuper ? normaliseStage(current.superOvers?.[superOverIndex - 1], superOverIndex) : {
+      const stage = isSuper ? normaliseStage(current.superOvers?.[superOverIndex - 1], superOverIndex, teams) : {
         status: current.status,
         innings: Array.isArray(current.innings) ? current.innings : [],
         live: current.live || emptyLive(),
@@ -425,7 +464,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     });
 
     pushResult(result);
-    const resultingStage = isSuper ? normaliseStage(result.next.superOvers?.[superOverIndex - 1], superOverIndex) : { ...result.next, innings: result.next.innings || [] };
+    const resultingStage = isSuper ? normaliseStage(result.next.superOvers?.[superOverIndex - 1], superOverIndex, teams) : { ...result.next, innings: result.next.innings || [] };
     const resultingInn = resultingStage.innings?.at(-1);
     const resultingScore = resultingInn ? computeInnings(deliveryList(resultingInn.deliveries), { maxOvers, maxWickets }) : score;
     const resultingHurt = unique(resultingStage.live?.retiredHurt || []);
@@ -448,7 +487,8 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
       return;
     }
     if ((wicket || retired) && incomingSlot && resultingStage.live?.[incomingSlot] === "") {
-      const available = activeBattingPlayers.filter((p) => p !== wicketData.dismissed && !dismissedPlayers.includes(p));
+      const resultingDismissedPlayers = unique((resultingInn?.deliveries || []).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));
+      const available = activeBattingPlayers.filter((p) => p !== wicketData.dismissed && !resultingDismissedPlayers.includes(p));
       setNewBatsman(available[0] || "");
       setNewBatsmanSlot(incomingSlot);
       setNewBatsmanExcluded(wicketData.dismissed);
@@ -506,7 +546,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     if (!newBatsman || !choices.includes(newBatsman)) return setToast("Choose the incoming batter");
     const result = isSuper
       ? patchMatch(matchId, (current) => {
-          const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex);
+          const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex, teams);
           stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, [newBatsmanSlot]: newBatsman } }; return { ...current, superOvers: stages };
         })
       : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, [newBatsmanSlot]: newBatsman } }));
@@ -517,7 +557,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const selectBowler = (name) => {
     if (!name || name === currentStage.live.previousBowler) return setToast("That bowler just bowled the current over");
     const result = isSuper
-      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, bowler: name } }; return { ...current, superOvers: stages }; })
+      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex, teams); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, bowler: name } }; return { ...current, superOvers: stages }; })
       : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, bowler: name } }));
     pushResult(result, `${name} starts the new over`); setBowlerOpen(false);
   };
@@ -527,7 +567,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     if (!candidate || !retiredHurt.includes(candidate)) return setToast("Choose a retired-hurt player");
     const slot = currentStage.live.striker ? (currentStage.live.nonStriker ? "striker" : "nonStriker") : "striker";
     const result = isSuper
-      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, [slot]: candidate, retiredHurt: stage.live.retiredHurt.filter((p) => p !== candidate) } }; return { ...current, superOvers: stages }; })
+      ? patchMatch(matchId, (current) => { const stages = [...(current.superOvers || [])]; const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex, teams); stages[superOverIndex - 1] = { ...stage, live: { ...stage.live, [slot]: candidate, retiredHurt: stage.live.retiredHurt.filter((p) => p !== candidate) } }; return { ...current, superOvers: stages }; })
       : patchMatch(matchId, (current) => ({ ...current, live: { ...current.live, [slot]: candidate, retiredHurt: (current.live?.retiredHurt || []).filter((p) => p !== candidate) } }));
     pushResult(result, `${candidate} returns from retired hurt`); setReturnOpen(false); setReturnPlayer("");
   };
@@ -536,7 +576,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     const result = patchMatch(matchId, (current) => {
       if (isSuper) {
         const stages = [...(current.superOvers || [])];
-        const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex);
+        const stage = normaliseStage(stages[superOverIndex - 1], superOverIndex, teams);
         if (stage.innings.length < 2) {
           stages[superOverIndex - 1] = { ...stage, status: "innings2", live: { ...stage.live, striker: "", nonStriker: "", bowler: "" } };
           return { ...current, superOvers: stages };
@@ -587,12 +627,14 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
     {!isSuper && state.status === "upcoming" && <Setup fixture={fixture} teams={teams} setupModel={setupModel} />}
     {!isSuper && state.status === "innings2" && firstScore && <SecondInningsSetup battingTeam={state.innings[0].bowlingTeam} bowlingTeam={state.innings[0].battingTeam} teams={teams} onStart={(setup) => startSecondInnings(setup)} />}
-    {isSuper && !hasStartedStage && <SuperOverSetup teams={teams} stage={currentStage} onStart={(setup) => startSuperFirstInnings(setup)} />}
+    {isSuper && !hasStartedStage && (currentStage.battingFirst && currentStage.bowlingFirst
+      ? <SuperOverSetup teams={teams} stage={currentStage} onStart={(setup) => startSuperFirstInnings(setup)} />
+      : <section className="comic-panel paper-panel setup-panel setup-pending"><span className="panel-kicker">SUPER OVER {superOverIndex} / SETUP</span><p>Preparing the tied teams and opening-player choices…</p></section>)}
     {isSuper && currentStage.status === "innings2" && firstScore && <SecondInningsSetup battingTeam={stageInnings[0].bowlingTeam} bowlingTeam={stageInnings[0].battingTeam} teams={teams} onStart={(setup) => startSuperSecondInnings(setup)} />}
 
     {isLive && currentInn && <>
-      <section className="comic-panel dark-panel active-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} / LIVE CONTROL` : "LIVE CONTROL"}</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle></div><span className="live-chip"><i /> LIVE</span></div>
-        <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="compact-over-strip"><span>OV {score.overs}.{score.balls}</span><span>{score.legal} legal</span><span>{currentStage.live.freeHit ? "FREE HIT" : "LEGAL BALL"}</span></div></div>
+      <section className="comic-panel dark-panel active-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} / LIVE CONTROL` : "LIVE CONTROL"}</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle><div className="compact-innings-identity"><span className="compact-bat-icon" aria-hidden="true">▱</span><TeamBadge code={currentInn.battingTeam} teams={teams} /><b>{currentInn.battingTeam}</b></div></div><span className="live-chip"><i /> LIVE</span></div>
+        <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="compact-over-strip" aria-label={`Over ${score.overs}.${score.balls}, ${score.legal} legal balls, ${currentStage.live.freeHit ? "free hit" : "legal ball"}`}><span><b>OVER</b> {score.overs}.{score.balls}</span><span><b>LEGAL</b> {score.legal}</span><span className={currentStage.live.freeHit ? "is-free-hit" : ""}><b>{currentStage.live.freeHit ? "FREE HIT" : "LEGAL BALL"}</b></span></div></div>
         {!currentStage.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
         <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!currentStage.live.bowler} onClick={openWicketModal}>WICKET</button></div>
         <div className="retirement-actions"><button className="retirement-action retirement-hurt-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Hurt", e)}>RETIRED HURT</button><button className="retirement-action retirement-out-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Out", e)}>RETIRED OUT</button></div>
@@ -643,20 +685,23 @@ function SetupFields({ fixture, teams, setup, setSetup }) {
   const updateToss = (winner, decision) => { const batting = decision === "bat" ? winner : (winner === fixture.t1 ? fixture.t2 : fixture.t1); const bowl = batting === fixture.t1 ? fixture.t2 : fixture.t1; setSetup({ ...setup, tossWinner: winner, tossDecision: decision, batting, striker: teams[batting]?.players?.[0] || "", nonStriker: teams[batting]?.players?.[1] || "", bowler: teams[bowl]?.players?.[0] || "" }); };
   const battingPlayers = unique(teams[setup.batting]?.players || []);
   const bowlingPlayers = unique(teams[bowling]?.players || []);
-  return <div className="setup-grid"><div className="setup-derived"><span>Batting first</span><strong>{setup.batting}</strong></div><div className="setup-derived"><span>Bowling first</span><strong>{bowling}</strong></div><label>Toss winner<select value={setup.tossWinner} onChange={(e) => updateToss(e.target.value, setup.tossDecision)}>{[fixture.t1, fixture.t2].map((team) => <option key={team}>{team}</option>)}</select></label><label>Toss decision<select value={setup.tossDecision} onChange={(e) => updateToss(setup.tossWinner, e.target.value)}><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div>;
+  const changeStriker = (striker) => setSetup((s) => ({ ...s, striker, nonStriker: s.nonStriker === striker ? (battingPlayers.find((p) => p !== striker) || "") : s.nonStriker }));
+  return <div className="setup-grid"><div className="setup-derived"><span>Batting first</span><strong>{setup.batting}</strong></div><div className="setup-derived"><span>Bowling first</span><strong>{bowling}</strong></div><label>Toss winner<select value={setup.tossWinner} onChange={(e) => updateToss(e.target.value, setup.tossDecision)}>{[fixture.t1, fixture.t2].map((team) => <option key={team}>{team}</option>)}</select></label><label>Toss decision<select value={setup.tossDecision} onChange={(e) => updateToss(setup.tossWinner, e.target.value)}><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label><label>Striker<select value={setup.striker} onChange={(e) => changeStriker(e.target.value)}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div>;
 }
 
 function SecondInningsSetup({ battingTeam, bowlingTeam, teams, onStart }) {
   const battingPlayers = unique(teams[battingTeam]?.players || []); const bowlingPlayers = unique(teams[bowlingTeam]?.players || []);
   const [setup, setSetup] = useState({ striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
-  return <section className="innings-break comic-panel paper-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{battingTeam} is chasing.</ComicTitle></div><span className="format-stamp">SET OPENING PLAYERS</span></div><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start second innings <span>→</span></button></section>;
+  const changeStriker = (striker) => setSetup((s) => ({ ...s, striker, nonStriker: s.nonStriker === striker ? (battingPlayers.find((p) => p !== striker) || "") : s.nonStriker }));
+  return <section className="innings-break comic-panel paper-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{battingTeam} is chasing.</ComicTitle></div><span className="format-stamp">SET OPENING PLAYERS</span></div><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => changeStriker(e.target.value)}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start second innings <span>→</span></button></section>;
 }
 
 function SuperOverSetup({ teams, stage, onStart }) {
-  const batting = stage.battingFirst || Object.keys(teams)[0]; const bowling = stage.bowlingFirst || Object.keys(teams).find((x) => x !== batting) || "";
+  const batting = stage.battingFirst; const bowling = stage.bowlingFirst;
   const battingPlayers = unique(teams[batting]?.players || []); const bowlingPlayers = unique(teams[bowling]?.players || []);
   const [setup, setSetup] = useState({ striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
-  return <section className="comic-panel paper-panel setup-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">SUPER OVER {stage.index} / SETUP</span><ComicTitle as="h2">One over. Two wickets.</ComicTitle></div><span className="format-stamp">1 OVER / 2 WKTS</span></div><p>{batting} bats first; {bowling} bowls.</p><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start Super Over <span>→</span></button></section>;
+  const changeStriker = (striker) => setSetup((s) => ({ ...s, striker, nonStriker: s.nonStriker === striker ? (battingPlayers.find((p) => p !== striker) || "") : s.nonStriker }));
+  return <section className="comic-panel paper-panel setup-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">SUPER OVER {stage.index} / SETUP</span><ComicTitle as="h2">One over. Two wickets.</ComicTitle></div><span className="format-stamp">1 OVER / 2 WKTS</span></div><p>{batting} bats first; {bowling} bowls.</p><div className="setup-grid"><label>Striker<select value={setup.striker} onChange={(e) => changeStriker(e.target.value)}>{battingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={p}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={p}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={() => onStart(setup)}>Start Super Over <span>→</span></button></section>;
 }
 
 function WicketModal({ origin, state, battingPlayers, bowlingPlayers, draft, setDraft, onClose, onSubmit }) {

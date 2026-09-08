@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 let ts;
 try {
@@ -14,7 +15,7 @@ try {
   }
 }
 
-const root = new URL("../", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../", import.meta.url));
 const source = join(root, "src");
 const files = (await readdir(source)).filter((name) => [".js", ".jsx"].includes(extname(name)));
 const failures = [];

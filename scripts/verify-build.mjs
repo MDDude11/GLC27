@@ -1,7 +1,9 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const dist = new URL("../dist/", import.meta.url);
+const distPath = fileURLToPath(dist);
 const requiredPages = [
   "index.html",
   "programme.html",
@@ -23,7 +25,7 @@ for (const file of requiredPages) {
   }
 }
 
-const assets = await readdir(join(dist.pathname, "assets"));
+const assets = await readdir(join(distPath, "assets"));
 const jsAssets = assets.filter((file) => /\.js$/.test(file));
 if (!jsAssets.length) throw new Error("Build verification failed: no JavaScript assets were emitted.");
 
@@ -41,7 +43,7 @@ if (/^https?:/i.test(scorerScript)) throw new Error("Build verification failed: 
 const scorerAssetName = scorerScript.split("/").pop();
 if (!scorerAssetName) throw new Error("Build verification failed: scorer script filename is empty.");
 try {
-  await access(join(dist.pathname, "assets", scorerAssetName));
+  await access(join(distPath, "assets", scorerAssetName));
 } catch {
   throw new Error(`Build verification failed: scorer script ${scorerScript} is missing from dist/assets/.`);
 }
