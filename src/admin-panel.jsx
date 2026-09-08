@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { ComicTitle } from "./components.jsx";
-import { ADMIN_ROSTER, ADMIN_PASSWORD, INTERNAL_MATCH_PREFIX, createEmptyInternalMatch } from "./admin.js";
+import { ADMIN_ROSTER, ADMIN_PASSWORD, createEmptyInternalMatch, createInternalMatchId } from "./admin.js";
 import { createInternalMatch, deleteInternalMatch, listInternalMatches } from "./store.js";
-import { matchPath, scorerPath } from "./data.js";
+
 
 const accents = ["#ff675d", "#76caff", "#efff3f", "#c39aff", "#ffb160", "#74d79a"];
 const today = new Date();
@@ -62,8 +62,7 @@ export default function AdminPanel() {
     if (new Set([...a, ...b]).size < 6) return setStatus("Each player must be selected only once in this match.");
     setBusy(true); setStatus("");
     try {
-      const randomSuffix = typeof crypto?.randomUUID === "function" ? crypto.randomUUID().slice(0, 6).toUpperCase() : Math.random().toString(36).slice(2, 8).toUpperCase();
-      const id = `${INTERNAL_MATCH_PREFIX}${Date.now().toString(36).toUpperCase()}-${randomSuffix}`;
+      const id = createInternalMatchId(new Set(Object.keys(matches || {})));
       const teamA = { code: "A", name: form.teamAName.trim() || "TEAM A", accent: accents[0], paper: "#ffd9c8", players: a };
       const teamB = { code: "B", name: form.teamBName.trim() || "TEAM B", accent: accents[1], paper: "#d8ecff", players: b };
       const match = createEmptyInternalMatch({ id, label: form.label.trim() || id, date: form.date, time: form.time, venue: form.venue.trim(), teamA, teamB });
@@ -100,7 +99,7 @@ export default function AdminPanel() {
   if (!unlocked) return <section className="admin-gate comic-panel paper-panel">
     <span className="panel-kicker">RESTRICTED / INTERNAL TEST BUILD</span>
     <ComicTitle as="h2">Admin <i>mode.</i></ComicTitle>
-    <p>Separate internal test-match control. ITB match IDs are stored in the shared matches feed.</p>
+    <p>Separate internal test-match control. Custom match IDs are stored in the shared matches feed.</p>
     <form className="admin-password-form" onSubmit={unlock}>
       <label>Admin password<input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="Enter secret password" autoComplete="off" /></label>
       {error && <div className="form-error">{error}</div>}
@@ -122,7 +121,7 @@ export default function AdminPanel() {
         <div className="admin-form-actions"><button className="comic-button primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Create match ↗"}</button><button type="button" className="back-button offline-safe" onClick={() => { setForm({ ...form, teamAPlayers: ["", "", ""], teamBPlayers: ["", "", ""] }); setStatus(""); }}>Clear players</button></div>
       </form>
       {status && <div className="admin-status" role="status">{status}</div>}
-      <div className="admin-match-list"><div className="admin-list-heading"><span className="panel-kicker">CREATED INTERNAL MATCHES</span><button type="button" className="small-control offline-safe" onClick={loadMatches}>Refresh ↻</button></div>{Object.values(matches).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((match) => <article className="admin-match-item" key={match.id}><div><b>{match.label}</b><span>{match.date} · {match.time}{match.venue ? ` · ${match.venue}` : ""}</span><small>{match.teams?.A?.name} · {match.teams?.A?.players?.join(" / ")} <br /> {match.teams?.B?.name} · {match.teams?.B?.players?.join(" / ")}</small></div><div className="admin-match-actions"><a className="comic-button viewer-card-button" href={matchPath(match.id)}>Viewer ↗</a><a className="comic-button scorer-card-button" href={scorerPath(match.id)}>Scorer ↗</a><button type="button" className="comic-button delete-card-button" onClick={() => remove(match)} disabled={busy || !!deletingId}>{deletingId === match.id ? "Deleting…" : "Delete ×"}</button></div></article>)}{!Object.keys(matches).length && <div className="empty-state">No internal matches yet.</div>}</div>
+      <div className="admin-match-list"><div className="admin-list-heading"><span className="panel-kicker">CREATED INTERNAL MATCHES</span><button type="button" className="small-control offline-safe" onClick={loadMatches}>Refresh ↻</button></div>{Object.values(matches).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((match) => <article className="admin-match-item" key={match.id}><div><b>{match.label}</b><span>{match.date} · {match.time}{match.venue ? ` · ${match.venue}` : ""}</span><small>{match.teams?.A?.name} · {match.teams?.A?.players?.join(" / ")} <br /> {match.teams?.B?.name} · {match.teams?.B?.players?.join(" / ")}</small></div><div className="admin-match-actions"><span className="admin-created-note">Created. Open it later from Home → Matches.</span><button type="button" className="comic-button delete-card-button" onClick={() => remove(match)} disabled={busy || !!deletingId}>{deletingId === match.id ? "Deleting…" : "Delete ×"}</button></div></article>)}{!Object.keys(matches).length && <div className="empty-state">No internal matches yet.</div>}</div>
     </div>
   </section>;
 }

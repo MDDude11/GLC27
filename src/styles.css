@@ -1789,3 +1789,52 @@ html:not([data-theme="light"]) .comic-title * {
 html[data-reduce-motion="1"] .internal-match-card {
   animation: none !important;
 }
+
+/* ITB15.5 innings setup controls */
+.setup-derived {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(18, 18, 18, .12);
+  border-radius: 14px;
+  background: rgba(18, 18, 18, .04);
+}
+.setup-derived span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: .55;
+}
+.setup-derived strong {
+  font-size: 16px;
+}
+.setup-ball-type {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(18, 18, 18, .12);
+  border-radius: 14px;
+  background: rgba(18, 18, 18, .035);
+}
+.setup-choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.choice-chip {
+  border: 1px solid rgba(18, 18, 18, .14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, .55);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.choice-chip.selected {
+  background: rgba(92, 31, 255, .12);
+  border-color: rgba(92, 31, 255, .4);
+}
+.second-innings-setup {
+  margin-top: 18px;
+}

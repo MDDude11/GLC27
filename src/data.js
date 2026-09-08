@@ -171,7 +171,8 @@ export function emptyLive() {
     nonStriker: "",
     bowler: "",
     previousBowler: "",
-    freeHit: false
+    freeHit: false,
+    ballType: "pace"
   };
 }
 

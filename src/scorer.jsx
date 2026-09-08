@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MATCHES, MAX_OVERS, MAX_WICKETS, SCORER_PASSWORD, SCORER_SESSION_KEY, TEAMS, emptyLive, matchPath } from "./data.js";
 import { clone, computeInnings, describeResult } from "./engine.js";
-import { getMatch, patchMatch, useLiveMatchState, resolveMatchFixture } from "./store.js";
+import { getMatch, patchMatch, commitMatchUpdate, useLiveMatchState, resolveMatchFixture } from "./store.js";
 import { SiteFrame, ComicTitle, TeamBadge, Commentary, Scorecard, PlayerStats, ScorecardModal, Modal, morphOpen, WicketCount } from "./components.jsx";
 
 const unique = (items) => [...new Set(items.filter(Boolean))];
@@ -19,7 +19,7 @@ export default function ScorerPage({ matchId }) {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(`${SCORER_SESSION_KEY}_${matchId}`) === "1");
   const [password, setPassword] = useState("");
   useEffect(() => { let active = true; if (MATCHES[matchId]) return undefined; void resolveMatchFixture(matchId).then((resolved) => { if (active) { setFixture(resolved); setLoading(false); } }); return () => { active = false; }; }, [matchId]);
-  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the separate Firebase internal match record.</p></section></main></SiteFrame>;
+  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the match record from Firebase.</p></section></main></SiteFrame>;
   if (!fixture) return <NotFoundScorer />;
   if (!unlocked) return <PasswordGate password={password} setPassword={setPassword} onUnlock={() => setUnlocked(true)} fixture={fixture} />;
   return <ScorerDesk matchId={matchId} fixture={fixture} />;
@@ -43,7 +43,21 @@ function ScorerDesk({ matchId, fixture }) {
   const [history, setHistory] = useState([]);
   const battingPlayers = teams[fixture.t1]?.players || [];
   const bowlingPlayers = teams[fixture.t2]?.players || [];
-  const [setup, setSetup] = useState({ batting: fixture.t1, striker: battingPlayers[0] || "", nonStriker: battingPlayers[1] || "", bowler: bowlingPlayers[0] || "" });
+  const [setup, setSetup] = useState({
+    batting: fixture.t1,
+    tossWinner: fixture.t1,
+    tossDecision: "bat",
+    striker: battingPlayers[0] || "",
+    nonStriker: battingPlayers[1] || "",
+    bowler: bowlingPlayers[0] || "",
+    ballType: "pace"
+  });
+  const [secondSetup, setSecondSetup] = useState({
+    striker: "",
+    nonStriker: "",
+    bowler: "",
+    ballType: "pace"
+  });
   const [toast, setToast] = useState("");
   const [wicketOpen, setWicketOpen] = useState(false);
   const [wicketOrigin, setWicketOrigin] = useState(null);
@@ -70,9 +84,22 @@ function ScorerDesk({ matchId, fixture }) {
   const target = innings.length > 1 && firstScore ? firstScore.runs + 1 : null;
   const battingTeam = currentInn?.battingTeam || (innings.length === 0 ? setup.batting : fixture.t2);
   const bowlingTeam = currentInn?.bowlingTeam || (battingTeam === fixture.t1 ? fixture.t2 : fixture.t1);
+  const hasStartedInnings = innings.length > 0;
+  const effectiveStatus = state.status === "live" && !hasStartedInnings ? "upcoming" : state.status;
   const activeBattingPlayers = teams[battingTeam]?.players || [];
   const activeBowlingPlayers = teams[bowlingTeam]?.players || [];
   const inningsCards = innings.map((inn, i) => ({ ...inn, score: computeInnings(inn.deliveries || []), index: i }));
+  useEffect(() => {
+    if (state.status !== "innings2" || !innings[0]) return;
+    const nextBatting = innings[0].bowlingTeam;
+    const nextBowling = innings[0].battingTeam;
+    setSecondSetup((current) => ({
+      striker: current.striker || teams[nextBatting]?.players?.[0] || "",
+      nonStriker: current.nonStriker || teams[nextBatting]?.players?.[1] || "",
+      bowler: current.bowler || teams[nextBowling]?.players?.[0] || "",
+      ballType: current.ballType || "pace"
+    }));
+  }, [state.status, innings, teams]);
   const dismissedPlayers = useMemo(() => unique((currentInn?.deliveries || []).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed)), [currentInn]);
   const remainingPlayers = useMemo(() => activeBattingPlayers.filter((p) => !dismissedPlayers.includes(p)), [activeBattingPlayers, dismissedPlayers]);
   const soloBatter = state.status === "live" && score.wickets >= MAX_WICKETS - 1 && remainingPlayers.length <= 1;
@@ -85,17 +112,60 @@ function ScorerDesk({ matchId, fixture }) {
     return result.next;
   };
 
-  const startFirstInnings = () => {
+  const startFirstInnings = async () => {
+    if (!setup.tossWinner || !setup.tossDecision || !setup.striker || !setup.nonStriker || !setup.bowler) {
+      setToast("Complete the toss and opening-player setup first");
+      return;
+    }
+
     const batting = setup.batting;
     const bowling = batting === fixture.t1 ? fixture.t2 : fixture.t1;
-    pushResult(patchMatch(matchId, { status: "live", toss: { batting, bowling }, innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [] }], live: { striker: setup.striker, nonStriker: setup.nonStriker, bowler: setup.bowler, previousBowler: "", freeHit: false }, result: null }), "First innings started");
+    const tossWinner = setup.tossWinner;
+    const tossDecision = setup.tossDecision;
+
+    try {
+      const result = await commitMatchUpdate(matchId, {
+        status: "live",
+        toss: { winner: tossWinner, decision: tossDecision, batting, bowling },
+        innings: [{ battingTeam: batting, bowlingTeam: bowling, deliveries: [] }],
+        live: {
+          striker: setup.striker,
+          nonStriker: setup.nonStriker,
+          bowler: setup.bowler,
+          previousBowler: "",
+          freeHit: false,
+          ballType: setup.ballType
+        },
+        result: null
+      }, { requireLiveStart: true });
+
+      pushResult(result, "Match started — first innings is live");
+    } catch (error) {
+      console.error(error);
+      setToast("Could not start match. Firebase did not confirm the live state.");
+    }
   };
 
   const startSecondInnings = () => {
     const first = state.innings[0];
     const nextBatting = first.bowlingTeam;
     const nextBowling = first.battingTeam;
-    pushResult(patchMatch(matchId, (current) => ({ ...current, status: "live", innings: [...current.innings, { battingTeam: nextBatting, bowlingTeam: nextBowling, deliveries: [] }], live: { striker: teams[nextBatting].players[0], nonStriker: teams[nextBatting].players[1], bowler: teams[nextBowling].players[0], previousBowler: "", freeHit: false } })), "Second innings started");
+    const striker = secondSetup.striker || teams[nextBatting]?.players?.[0] || "";
+    const nonStriker = secondSetup.nonStriker || teams[nextBatting]?.players?.[1] || "";
+    const bowler = secondSetup.bowler || teams[nextBowling]?.players?.[0] || "";
+    pushResult(patchMatch(matchId, (current) => ({
+      ...current,
+      status: "live",
+      innings: [...current.innings, { battingTeam: nextBatting, bowlingTeam: nextBowling, deliveries: [] }],
+      live: {
+        striker,
+        nonStriker,
+        bowler,
+        previousBowler: "",
+        freeHit: false,
+        ballType: secondSetup.ballType || "pace"
+      }
+    })), "Second innings started");
   };
 
   const addDelivery = (runs, opts = {}) => {
@@ -107,7 +177,7 @@ function ScorerDesk({ matchId, fixture }) {
     if (wicket && state.live.freeHit && wicketData.type !== "Run Out") return setToast("Only a run-out can be recorded on a free hit");
 
     const legal = !wide && !noBall && !isRetireEvent;
-    const delivery = { striker: state.live.striker, nonStriker: state.live.nonStriker, bowler: isRetireEvent ? "" : state.live.bowler, runs: isRetireEvent ? 0 : runs, wide, noBall, deadBall: isRetireEvent, wicket: wicket && !isRetireEvent, retired: isRetireEvent, wicketType: wicket && !isRetireEvent ? wicketData.type : "", retirementType: isRetireEvent ? wicketData.type : "", dismissed: wicket || isRetireEvent ? wicketData.dismissed : "", fielder: wicketData.fielder || "", outEnd: wicketData.outEnd || "", dismissalText: wicket || isRetireEvent ? wicketData.text : "", ballType: "pace" };
+    const delivery = { striker: state.live.striker, nonStriker: state.live.nonStriker, bowler: isRetireEvent ? "" : state.live.bowler, runs: isRetireEvent ? 0 : runs, wide, noBall, deadBall: isRetireEvent, wicket: wicket && !isRetireEvent, retired: isRetireEvent, wicketType: wicket && !isRetireEvent ? wicketData.type : "", retirementType: isRetireEvent ? wicketData.type : "", dismissed: wicket || isRetireEvent ? wicketData.dismissed : "", fielder: wicketData.fielder || "", outEnd: wicketData.outEnd || "", dismissalText: wicket || isRetireEvent ? wicketData.text : "", ballType: state.live.ballType || "pace" };
 
     let nextIncomingSlot = "";
     let incomingCandidates = [];
@@ -275,10 +345,10 @@ function ScorerDesk({ matchId, fixture }) {
     <div className="scorer-topline"><a className="back-button" href={matchPath(matchId)}>← Viewer</a><div className="scorer-title"><span>{fixture.label} / OFFICIALS</span><ComicTitle>The <i>DRAFTS</i> / Scorer</ComicTitle></div><div className="scorer-actions"><button className="small-control blue-control undo-button" onClick={undo} disabled={!history.length}>Undo {history.length}</button><button className="small-control red-control undo-button reset-action" onClick={reset}>Reset</button></div></div>
     <div className="scoreboard-hero comic-panel dark-panel"><div className="scoreboard-team"><TeamBadge code={currentInn?.battingTeam || fixture.t1} large teams={teams} /><small>Batting</small></div><div className="score-main"><span className={`score-state state-${state.status}`}>{state.status}</span><strong>{score.runs}<em>/<WicketCount wickets={score.wickets} deliveries={currentInn?.deliveries || []} /></em></strong><span>{score.overs}.{score.balls} / {MAX_OVERS} overs {target ? `· target ${target}` : ""}</span></div><div className="scoreboard-team"><TeamBadge code={currentInn?.bowlingTeam || fixture.t2} large teams={teams} /><small>Bowling</small></div></div>
 
-    {state.status === "upcoming" && <Setup fixture={fixture} teams={teams} setup={setup} setSetup={setSetup} onStart={startFirstInnings} />}
-    {state.status === "innings2" && <section className="innings-break comic-panel paper-panel"><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{fixture.t1 === innings[0]?.battingTeam ? fixture.t2 : fixture.t1} is chasing.</ComicTitle><p>First innings finished at {firstScore.runs}/{firstScore.wickets}.</p></div><button className="comic-button primary" onClick={startSecondInnings}>Start second innings <span>→</span></button></section>}
+    {effectiveStatus === "upcoming" && <Setup fixture={fixture} teams={teams} setup={setup} setSetup={setSetup} onStart={startFirstInnings} />}
+    {effectiveStatus === "innings2" && firstScore && <section className="innings-break comic-panel paper-panel"><div><span className="panel-kicker">INNINGS BREAK</span><ComicTitle as="h2">{fixture.t1 === innings[0]?.battingTeam ? fixture.t2 : fixture.t1} is chasing.</ComicTitle><p>First innings finished at {firstScore.runs}/{firstScore.wickets}. Set the opening players for the chase.</p></div><SecondInningsSetup battingTeam={innings[0].bowlingTeam} bowlingTeam={innings[0].battingTeam} teams={teams} setup={secondSetup} setSetup={setSecondSetup} onStart={startSecondInnings} /></section>}
 
-    {state.status === "live" && currentInn && <>
+    {effectiveStatus === "live" && currentInn && <>
       <section className="comic-panel dark-panel active-panel"><div className="panel-heading"><div><span className="panel-kicker">LIVE CONTROL</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle></div><span className="live-chip"><i /> LIVE</span></div>
         <div className="player-strip"><div className="player-box active-player"><span>STRIKER</span><b>{state.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box"><span>NON-STRIKER</span><b>{state.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box"><span>BOWLER</span><b>{state.live.bowler || "New over"}</b></div></div>
         {!state.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
@@ -289,7 +359,7 @@ function ScorerDesk({ matchId, fixture }) {
       <PlayerStats state={state} teamCodes={[fixture.t1, fixture.t2]} teams={teams} mode="scorer" />
     </>}
 
-    {state.status === "completed" && <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">MATCH COMPLETE</span><ComicTitle as="h2">{state.result?.winner === "tie" ? "Match tied" : `${state.result?.winner} wins`}</ComicTitle><p>{state.result?.desc}</p><div className="result-scores">{inningsCards.map((inn) => <div key={`result-${inn.index}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{inn.score.runs}/{inn.score.wickets}</strong><span>({inn.score.overs}.{inn.score.balls})</span></div>)}</div><button className="central-scorecard-button" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>VIEW SCORECARD ↗</button></section>}
+    {effectiveStatus === "completed" && <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">MATCH COMPLETE</span><ComicTitle as="h2">{state.result?.winner === "tie" ? "Match tied" : `${state.result?.winner} wins`}</ComicTitle><p>{state.result?.desc}</p><div className="result-scores">{inningsCards.map((inn) => <div key={`result-${inn.index}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{inn.score.runs}/{inn.score.wickets}</strong><span>({inn.score.overs}.{inn.score.balls})</span></div>)}</div><button className="central-scorecard-button" onClick={(e) => morphOpen(e, "scorecard-morph", () => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); })}>VIEW SCORECARD ↗</button></section>}
 
     <div className="scorer-footer"><a className="comic-button secondary" href={matchPath(matchId)}>Public viewer ↗</a><button className="comic-button tertiary" onClick={(e) => morphOpen(e, "commentary-morph", () => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); })}>Open commentary ↗</button></div>
 
@@ -331,9 +401,52 @@ function BowlerModal({ origin, bowlingPlayers, currentInn, previousBowler, onSel
   return <Modal origin={origin} onClose={onClose} className="bowler-modal paper-panel" ariaLabel="Select new bowler"><div className="modal-heading"><div><span className="panel-kicker">NEW OVER</span><ComicTitle as="h2">Select new bowler</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><p>The bowler from the previous over is locked. Choose another eligible bowler.</p><div className="bowler-choice-grid">{unique(bowlingPlayers).map((p, index) => { const f = score.bowlers[p] || { balls: 0, runs: 0, wickets: 0 }; const locked = p === previousBowler; const econ = f.balls ? (f.runs / (f.balls / 6)).toFixed(2) : "—"; return <button type="button" className={`player-pick ${locked ? "locked" : ""} player-pick-${index % 3}`} key={`bowler-${p}`} disabled={locked} onClick={() => onSelect(p)}><div className="bowler-name"><b>{p}</b>{locked && <span className="lock-mark">LOCKED</span>}</div><div className="bowler-metrics"><span><b>{Math.floor(f.balls / 6)}.{f.balls % 6}</b><small>OVERS</small></span><span><b>{econ}</b><small>ECON</small></span><span><b>{f.wickets}</b><small>WICKETS</small></span></div><span className="pick-label">{locked ? "JUST BOWLED THIS OVER" : "SELECT BOWLER →"}</span></button>; })}</div></Modal>;
 }
 
+function SecondInningsSetup({ battingTeam, bowlingTeam, teams, setup, setSetup, onStart }) {
+  const battingPlayers = unique(teams[battingTeam]?.players || []);
+  const bowlingPlayers = unique(teams[bowlingTeam]?.players || []);
+  return <div className="second-innings-setup">
+    <div className="setup-grid">
+      <label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={`second-striker-${p}`}>{p}</option>)}</select></label>
+      <label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={`second-non-${p}`}>{p}</option>)}</select></label>
+      <label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={`second-bowler-${p}`}>{p}</option>)}</select></label>
+    </div>
+    <div className="setup-ball-type"><span className="panel-kicker">OPENING BOWLING TYPE</span><div className="setup-choice-row"><button type="button" className={`choice-chip ${setup.ballType === "pace" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "pace" }))}>Pace</button><button type="button" className={`choice-chip ${setup.ballType === "spin" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "spin" }))}>Spin</button></div></div>
+    <button className="comic-button primary wide-button" onClick={onStart}>Start second innings <span>→</span></button>
+  </div>;
+}
+
 function Setup({ fixture, teams, setup, setSetup, onStart }) {
   const bowling = setup.batting === fixture.t1 ? fixture.t2 : fixture.t1;
-  return <section className="comic-panel paper-panel setup-panel"><div className="panel-heading"><div><span className="panel-kicker">MATCH SETUP</span><ComicTitle as="h2">Set the opening players</ComicTitle></div><span className="format-stamp">3 WICKETS / 6 OVERS</span></div><div className="setup-grid"><label>Batting team<select value={setup.batting} onChange={(e) => { const team = e.target.value; const bowl = team === fixture.t1 ? fixture.t2 : fixture.t1; setSetup({ batting: team, striker: teams[team].players[0], nonStriker: teams[team].players[1], bowler: teams[bowl].players[0] }); }}>{[fixture.t1, fixture.t2].map((t) => <option key={`setup-team-${t}`}>{t}</option>)}</select></label><label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{unique(teams[setup.batting].players).map((p) => <option key={`setup-striker-${p}`}>{p}</option>)}</select></label><label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{unique(teams[setup.batting].players.filter((p) => p !== setup.striker)).map((p) => <option key={`setup-non-${p}`}>{p}</option>)}</select></label><label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{unique(teams[bowling].players).map((p) => <option key={`setup-bowler-${p}`}>{p}</option>)}</select></label></div><button className="comic-button primary wide-button" onClick={onStart}>Start first innings <span>→</span></button></section>;
+  const tossTeams = [fixture.t1, fixture.t2];
+  const battingPlayers = unique(teams[setup.batting]?.players || []);
+  const bowlingPlayers = unique(teams[bowling]?.players || []);
+  const updateToss = (winner, decision) => {
+    const batting = decision === "bat" ? winner : (winner === fixture.t1 ? fixture.t2 : fixture.t1);
+    const bowl = batting === fixture.t1 ? fixture.t2 : fixture.t1;
+    setSetup({
+      ...setup,
+      tossWinner: winner,
+      tossDecision: decision,
+      batting,
+      striker: teams[batting]?.players?.[0] || "",
+      nonStriker: teams[batting]?.players?.[1] || "",
+      bowler: teams[bowl]?.players?.[0] || ""
+    });
+  };
+  return <section className="comic-panel paper-panel setup-panel">
+    <div className="panel-heading"><div><span className="panel-kicker">MATCH SETUP</span><ComicTitle as="h2">Set the opening players</ComicTitle></div><span className="format-stamp">3 WICKETS / 6 OVERS</span></div>
+    <div className="setup-grid">
+      <div className="setup-derived"><span>Batting first</span><strong>{setup.batting}</strong></div>
+      <div className="setup-derived"><span>Bowling first</span><strong>{bowling}</strong></div>
+      <label>Toss winner<select value={setup.tossWinner} onChange={(e) => updateToss(e.target.value, setup.tossDecision)}>{tossTeams.map((t) => <option key={`toss-winner-${t}`}>{t}</option>)}</select></label>
+      <label>Toss decision<select value={setup.tossDecision} onChange={(e) => updateToss(setup.tossWinner, e.target.value)}><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label>
+      <label>Striker<select value={setup.striker} onChange={(e) => setSetup((s) => ({ ...s, striker: e.target.value }))}>{battingPlayers.map((p) => <option key={`setup-striker-${p}`}>{p}</option>)}</select></label>
+      <label>Non-striker<select value={setup.nonStriker} onChange={(e) => setSetup((s) => ({ ...s, nonStriker: e.target.value }))}>{battingPlayers.filter((p) => p !== setup.striker).map((p) => <option key={`setup-non-${p}`}>{p}</option>)}</select></label>
+      <label>Bowler<select value={setup.bowler} onChange={(e) => setSetup((s) => ({ ...s, bowler: e.target.value }))}>{bowlingPlayers.map((p) => <option key={`setup-bowler-${p}`}>{p}</option>)}</select></label>
+    </div>
+    <div className="setup-ball-type"><span className="panel-kicker">OPENING BOWLING TYPE</span><div className="setup-choice-row"><button type="button" className={`choice-chip ${setup.ballType === "pace" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "pace" }))}>Pace</button><button type="button" className={`choice-chip ${setup.ballType === "spin" ? "selected" : ""}`} onClick={() => setSetup((s) => ({ ...s, ballType: "spin" }))}>Spin</button></div></div>
+    <button className="comic-button primary wide-button" onClick={onStart}>Start Match <span>→</span></button>
+  </section>;
 }
 
 function NotFoundScorer() {

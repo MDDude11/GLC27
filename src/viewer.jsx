@@ -138,7 +138,7 @@ export default function ViewerPage({ matchId }) {
       ? "Innings break"
       : `${viewerTeams?.[team1]?.name || team1 || "Team A"} vs ${viewerTeams?.[team2]?.name || team2 || "Team B"}`;
 
-  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the separate Firebase internal match record.</p></section></main></SiteFrame>;
+  if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the match record from Firebase.</p></section></main></SiteFrame>;
   if (!fixture) return <NotFound />;
 
   return <SiteFrame active="matches"><main className="section-wrap page-section viewer-page">

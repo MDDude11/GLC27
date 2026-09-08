@@ -1,6 +1,6 @@
-# GLsiteITB15 — Gala Luxuria Cup 2027 / The *DRAFTS*
+# GLsiteITB16 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
-Version 13 internal test build / publish candidate.
+Version 16 internal test build / publish candidate.
 
 ## What is included
 - Dark-mode standard cards use the dark surface with light text.
@@ -44,7 +44,7 @@ The current `database.rules.json` is intentionally open for this internal test b
 
 Settings contains a restricted Admin Mode at the bottom. The development fallback password is `DRAFTSADMIN11`; set `VITE_ADMIN_PASSWORD` before publishing to use your own password. The GitHub Pages workflow reads the GitHub Actions secret `VITE_ADMIN_PASSWORD`. This is a client-side gate, not secure authentication, because a static-site password is present in the browser bundle after build.
 
-ITB custom matches use the same Firebase Realtime Database `/matches/<matchId>` records and realtime listener path as the official demo matches. Their IDs remain `ITB...`, so the UI can keep them separated and clearly labelled without maintaining a second live-match namespace.
+Custom matches use the same Firebase Realtime Database `/matches/<matchId>` records and realtime listener path as the official demo matches. New matches use `custom-XXXXX-` IDs; legacy `ITB11-...` IDs remain supported for compatibility.
 
 GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses `firebase.json` and the same static build.
 
@@ -61,11 +61,15 @@ GitHub Pages can serve the Vite build output from `dist`; Firebase Hosting uses 
 - Landing presenter label is `The Host presents`.
 
 
-## ITB15 changes
+## ITB16 changes
 
-- ITB custom matches now use the same Firebase Realtime Database path as demo matches: `matches/{ITB...}`.
-- New custom match writes, deletes, seeds, viewer subscriptions, and scorer updates all use the normal match Firebase path.
-- Existing `internalMatches/{ITB...}` records are migrated into `matches/{ITB...}` when encountered, so older test matches remain accessible.
-- The internal-match archive still filters ITB IDs for its UI and continues to maintain `internalPlayerStats` separately.
-- Fixed the internal-match VS badge contrast/offset styling.
-- Updated the About-page programme text and the landing-page timed text carousel.
+- New custom matches are created with `custom-XXXXX-` IDs and are shown in the same match archive grid as D1/D2.
+- Creating a match no longer provides a direct Viewer/Scorer launch from Admin Mode; return through Home → Matches.
+- The Start Match action is Firebase-first and verified: the match must be saved with its toss, first innings and live state before the scorer switches to the live desk.
+- Custom match object updates merge with the existing full match record so team, player, label and metadata cannot be accidentally wiped by a status/innings update.
+- Custom matches now use the same `matches/{id}` live Firebase record path as demo matches.
+- New custom IDs use `custom-XXXXX-` followed by a randomized seven-character sequence containing exactly 3 letters and 4 numbers.
+- Internal legacy `ITB11-...` IDs remain supported.
+- Custom scorer setup now records toss winner, toss decision, batting/bowling sides, opening batters, opening bowler, and bowling type before the first delivery.
+- Second innings has an explicit opening-player setup before scoring resumes.
+- Internal match archive filtering recognizes both legacy and new custom IDs.

@@ -10,6 +10,12 @@ const firebaseConfig = {
 
 const MATCHES_ROOT = "matches";
 const LEGACY_INTERNAL_ROOT = "internalMatches";
+const LEGACY_INTERNAL_PREFIX = "ITB11-";
+const INTERNAL_MATCH_PREFIX = "custom-";
+const isInternalMatchRecord = (id = "") => {
+  const value = String(id);
+  return value.startsWith(INTERNAL_MATCH_PREFIX) || value.startsWith(LEGACY_INTERNAL_PREFIX);
+};
 
 let firebasePromise;
 
@@ -183,7 +189,7 @@ async function writeLegacyInternalMatch(matchId, match) {
 }
 
 export async function migrateLegacyInternalMatch(matchId) {
-  if (!String(matchId).startsWith("ITB")) return null;
+  if (!String(matchId).startsWith(LEGACY_INTERNAL_PREFIX)) return null;
 
   const { database, ref, get, set } = await loadFirebase();
   const targetRef = ref(database, `${MATCHES_ROOT}/${matchId}`);
@@ -220,7 +226,7 @@ export async function migrateLegacyInternalMatches() {
 
   const migrated = {};
   for (const [id, match] of Object.entries(legacy)) {
-    if (!String(id).startsWith("ITB") || match == null) continue;
+    if (!String(id).startsWith(LEGACY_INTERNAL_PREFIX) || match == null) continue;
 
     try {
       const existing = await migrateLegacyInternalMatch(id);
@@ -285,14 +291,14 @@ export async function listFirebaseInternalMatches() {
     const migrated = await migrateLegacyInternalMatches();
     return {
       ...Object.fromEntries(
-        Object.entries(all).filter(([id]) => String(id).startsWith("ITB"))
+        Object.entries(all).filter(([id]) => isInternalMatchRecord(id))
       ),
       ...migrated
     };
   } catch (error) {
     console.warn("Legacy internal-match migration could not complete.", error);
     return Object.fromEntries(
-      Object.entries(all).filter(([id]) => String(id).startsWith("ITB"))
+      Object.entries(all).filter(([id]) => isInternalMatchRecord(id))
     );
   }
 }
@@ -308,7 +314,7 @@ export async function subscribeFirebaseInternalMatches(onMatches, onError) {
     (all) => {
       onMatches(
         Object.fromEntries(
-          Object.entries(all || {}).filter(([id]) => String(id).startsWith("ITB"))
+          Object.entries(all || {}).filter(([id]) => isInternalMatchRecord(id))
         )
       );
     },

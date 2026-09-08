@@ -653,6 +653,53 @@ export function resetMatch(id) {
   return store.matches[id];
 }
 
+export async function commitMatchUpdate(id, updater, { requireLiveStart = false } = {}) {
+  const internal = isInternalMatchId(id);
+  const store = internal ? loadInternalStore() : loadStore();
+  const previous = clone(store.matches[id] || getMatch(id) || emptyMatch());
+  const current = clone(previous);
+  const nextBase = typeof updater === "function"
+    ? updater(current)
+    : { ...current, ...(updater || {}) };
+  const next = internal
+    ? {
+        ...nextBase,
+        id,
+        internal: true,
+        playerStats: playerStatsForMatch(nextBase),
+        updatedAt: new Date().toISOString()
+      }
+    : nextBase;
+
+  // Start actions are intentionally remote-first. The UI must not report a
+  // match as started until the authoritative Firebase write has completed.
+  await writeFirebaseMatch(id, next);
+
+  if (requireLiveStart) {
+    const verified = await getFirebaseInternalMatch(id);
+    if (!verified || verified.status !== "live" || !Array.isArray(verified.innings) || verified.innings.length < 1) {
+      throw new Error(`Firebase did not verify the live start for ${id}.`);
+    }
+  }
+
+  if (internal) {
+    store.matches[id] = next;
+    persistInternalStore(store);
+  } else {
+    store.matches[id] = next;
+    persistLocalStore(store);
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(internal ? "glt-internal-match-updated" : "glt-match-updated", {
+      detail: id,
+      remote: true
+    })
+  );
+
+  return { previous, next: clone(next) };
+}
+
 export function patchMatch(id, updater) {
   if (isInternalMatchId(id)) {
     return patchInternalMatch(
@@ -728,7 +775,7 @@ export function patchInternalMatch(
   const nextBase =
     typeof updater === "function"
       ? updater(current)
-      : updater;
+      : { ...current, ...(updater || {}) };
 
   const next =
     syncInternalMatch(
@@ -839,6 +886,13 @@ export function useLiveMatchState(
             delete store.matches[id];
             persistLocalStore(store);
           }
+          return;
+        }
+
+        const localCurrent = getMatch(id);
+        const localTime = Date.parse(localCurrent?.updatedAt || "");
+        const remoteTime = Date.parse(remoteMatch?.updatedAt || "");
+        if (Number.isFinite(localTime) && Number.isFinite(remoteTime) && remoteTime < localTime) {
           return;
         }
 
