@@ -146,6 +146,9 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const [scorecardOrigin, setScorecardOrigin] = useState(null);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnPlayer, setReturnPlayer] = useState("");
+  const [manualAdjustOpen, setManualAdjustOpen] = useState(false);
+  const [manualAdjustTeam, setManualAdjustTeam] = useState(fixture.t1);
+  const [manualAdjustAmount, setManualAdjustAmount] = useState(1);
   const preparingSuperRef = useRef(false);
 
   const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1, teams)) : [];
@@ -166,8 +169,9 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const currentInn = stageInnings.at(-1);
   const maxOvers = isSuper ? SUPER_OVER_MAX_OVERS : MAX_OVERS;
   const maxWickets = isSuper ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS;
-  const score = currentInn ? computeInnings(currentInn.deliveries, { maxOvers, maxWickets }) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
-  const firstScore = stageInnings[0] ? computeInnings(stageInnings[0].deliveries, { maxOvers, maxWickets }) : null;
+  const stageManualAdjustments = isSuper ? (currentStage.manualAdjustments || {}) : (state.manualAdjustments?.main || {});
+  const score = currentInn ? computeInnings(currentInn.deliveries, { maxOvers, maxWickets, manualAdjustment: Number(stageManualAdjustments[currentInn.battingTeam]) || 0 }) : { runs: 0, wickets: 0, legal: 0, overs: 0, balls: 0, batters: {}, bowlers: {} };
+  const firstScore = stageInnings[0] ? computeInnings(stageInnings[0].deliveries, { maxOvers, maxWickets, manualAdjustment: Number(stageManualAdjustments[stageInnings[0].battingTeam]) || 0 }) : null;
   const target = stageInnings.length > 1 && firstScore ? firstScore.runs + 1 : null;
   const battingTeam = currentInn?.battingTeam || (stageInnings.length ? stageInnings[0].battingTeam : (isSuper ? "" : fixture.t1));
   const bowlingTeam = currentInn?.bowlingTeam || (battingTeam === fixture.t1 ? fixture.t2 : fixture.t1);
@@ -179,7 +183,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
   const dismissedPlayers = useMemo(() => unique((currentInn?.deliveries || []).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed)), [currentInn]);
   const remainingPlayers = useMemo(() => activeBattingPlayers.filter((p) => !dismissedPlayers.includes(p)), [activeBattingPlayers, dismissedPlayers]);
-  const soloBatter = isLive && score.wickets >= maxWickets - 1 && remainingPlayers.length <= 1;
+  const soloBatter = isLive && remainingPlayers.length <= 1;
   const retiredHurt = unique(currentStage?.live?.retiredHurt || (isSuper ? [] : state?.live?.retiredHurt || []));
   const canReturnHurt = retiredHurt.length > 0 && score.wickets >= 2;
 
@@ -577,6 +581,43 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     setNewBatsmanOpen(false); setNewBatsman(""); setNewBatsmanSlot(""); setNewBatsmanExcluded(""); setNewBatsmanChoices([]);
   };
 
+  const applyManualAdjustment = (team, amount) => {
+    const delta = Number(amount) || 0;
+    if (!team || ![fixture.t1, fixture.t2].includes(team) || !delta) return setToast("Choose a team and adjustment");
+    const result = patchMatch(matchId, (current) => {
+      const stage = isSuper
+        ? normaliseStage(current.superOvers?.[superOverIndex - 1], superOverIndex, teams)
+        : {
+          status: current.status,
+          innings: Array.isArray(current.innings) ? current.innings : [],
+          live: current.live || emptyLive(),
+          result: current.result,
+          manualAdjustments: current.manualAdjustments?.main || {}
+        };
+      const adjustments = { ...(stage.manualAdjustments || {}) };
+      const previousAdjustment = Number(adjustments[team]) || 0;
+      const targetInn = stage.innings?.findLast?.((inn) => inn?.battingTeam === team) || [...(stage.innings || [])].reverse().find((inn) => inn?.battingTeam === team);
+      const baseScore = targetInn ? computeInnings(deliveryList(targetInn.deliveries), { maxOvers, maxWickets, manualAdjustment: previousAdjustment }) .runs : 0;
+      if (baseScore + delta < 0) return current;
+      adjustments[team] = previousAdjustment + delta;
+      if (isSuper) {
+        const nextStage = { ...stage, manualAdjustments: adjustments };
+        if (nextStage.innings?.length >= 2) nextStage.result = describeResult(nextStage, { maxOvers: SUPER_OVER_MAX_OVERS, maxWickets: SUPER_OVER_MAX_WICKETS, manualAdjustments: adjustments });
+        const stages = [...(current.superOvers || [])];
+        stages[superOverIndex - 1] = nextStage;
+        return { ...current, superOvers: stages };
+      }
+      const next = { ...current, manualAdjustments: { ...(current.manualAdjustments || {}), main: adjustments } };
+      if (next.innings?.length >= 2) next.result = describeResult(next, { maxOvers: MAX_OVERS, maxWickets: MAX_WICKETS, manualAdjustments: adjustments });
+      return next;
+    });
+    const currentAdjustments = Number((isSuper ? result.next?.superOvers?.[superOverIndex - 1]?.manualAdjustments?.[team] : result.next?.manualAdjustments?.main?.[team]) || 0);
+    const previousAdjustments = Number((isSuper ? result.previous?.superOvers?.[superOverIndex - 1]?.manualAdjustments?.[team] : result.previous?.manualAdjustments?.main?.[team]) || 0);
+    if (currentAdjustments !== previousAdjustments + delta) return setToast("That adjustment would make the score negative");
+    pushResult(result, `${team} ${delta > 0 ? "+" : ""}${delta} run${Math.abs(delta) === 1 ? "" : "s"}`);
+    setManualAdjustOpen(false);
+  };
+
   const selectBowler = (name) => {
     if (!name || name === currentStage.live.previousBowler) return setToast("That bowler just bowled the current over");
     const result = isSuper
@@ -667,17 +708,18 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
       <PlayerStats state={{ ...state, innings: stageInnings, superOvers: isSuper ? [] : state.superOvers }} teamCodes={[fixture.t1, fixture.t2]} teams={teams} mode="scorer" />
     </>}
 
-    {currentStage.status === "completed" || (!isSuper && state.status === "completed") ? <ResultPanel fixture={fixture} teams={teams} matchId={matchId} state={state} isSuper={isSuper} superOverIndex={superOverIndex} stage={currentStage} allStages={allStages} winnerText={winnerText} tiedStage={tiedStage} nextSuperIndex={nextSuperIndex} onScorecard={() => { setScorecardOrigin(null); setScorecardOpen(true); }} /> : null}
+    {currentStage.status === "completed" || (!isSuper && state.status === "completed") ? <ResultPanel fixture={fixture} teams={teams} matchId={matchId} state={state} isSuper={isSuper} superOverIndex={superOverIndex} stage={currentStage} allStages={allStages} winnerText={winnerText} tiedStage={tiedStage} nextSuperIndex={nextSuperIndex} onScorecard={() => { setScorecardOrigin(null); setScorecardOpen(true); }} manualAdjustments={state.manualAdjustments || { main: {}, superOvers: [] }} /> : null}
 
-    <div className="scorer-footer"><a className="comic-button secondary" href={matchPath(matchId)}>Public viewer ↗</a><button className="comic-button tertiary" onClick={() => setCommentaryOpen(true)}>Open commentary ↗</button></div>
+    <div className="scorer-footer"><div className="scorer-footer-tools"><span>OFFICIAL TOOLS</span><button className="comic-button tertiary manual-edit-button" onClick={() => { setManualAdjustTeam(fixture.t1); setManualAdjustAmount(1); setManualAdjustOpen(true); }}>EDIT MANUALLY</button></div><div className="scorer-footer-links"><a className="comic-button secondary" href={matchPath(matchId)}>Public viewer ↗</a><button className="comic-button tertiary" onClick={() => setCommentaryOpen(true)}>Open commentary ↗</button></div></div>
 
     {wicketOpen && <WicketModal origin={wicketOrigin} state={{ live: currentStage.live }} battingPlayers={activeBattingPlayers} bowlingPlayers={activeBowlingPlayers} draft={wicketDraft} setDraft={setWicketDraft} onClose={() => setWicketOpen(false)} onSubmit={submitWicket} />}
     {retirementOpen && <RetirementModal origin={retirementOrigin} type={retirementType} player={retirementPlayer} players={[currentStage.live.striker, currentStage.live.nonStriker].filter(Boolean)} onChange={setRetirementPlayer} onClose={() => setRetirementOpen(false)} onSubmit={submitRetirement} />}
     {newBatsmanOpen && <NewBatsmanModal choices={newBatsmanChoices} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => setNewBatsmanOpen(false)} onSubmit={confirmNewBatsman} />}
     {bowlerOpen && <BowlerModal bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={currentStage.live.previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
     {returnOpen && <RetiredHurtReturnModal players={retiredHurt} value={returnPlayer} setValue={setReturnPlayer} onBringBack={bringBackHurt} onEnd={endInningsFromHurt} onClose={() => setReturnOpen(false)} />}
+    {manualAdjustOpen && <ManualAdjustmentModal teams={fixture} team={manualAdjustTeam} amount={manualAdjustAmount} onTeamChange={setManualAdjustTeam} onAmountChange={setManualAdjustAmount} onClose={() => setManualAdjustOpen(false)} onSubmit={applyManualAdjustment} />}
     {commentaryOpen && <Modal onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
-    {scorecardOpen && <ScorecardModal innings={state.innings || []} superOvers={rootSuperOvers} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} />}
+    {scorecardOpen && <ScorecardModal innings={state.innings || []} superOvers={rootSuperOvers} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} manualAdjustments={state.manualAdjustments || { main: {}, superOvers: [] }} />}
     {toast && <div className="toast">{toast}</div>}
   </main></SiteFrame>;
 }
@@ -740,6 +782,13 @@ function RetiredHurtReturnModal({ players, value, setValue, onBringBack, onEnd, 
   return <Modal onClose={onClose} className="retirement-return-modal paper-panel" ariaLabel="Retired hurt return"><div className="modal-heading"><div><span className="panel-kicker">RETIREMENT / RETURN</span><ComicTitle as="h2">A batter is available to return.</ComicTitle></div></div><p>{value || players[0] || "The retired-hurt player"} can return now because two wickets are down.</p><div className="retirement-player-choice">{players.map((p) => <button key={p} className={value === p ? "selected" : ""} onClick={() => setValue(p)}>{p}</button>)}</div><div className="modal-actions"><button className="comic-button primary" onClick={onBringBack}>BRING PLAYER BACK</button><button className="back-button viewer-family" onClick={onEnd}>END INNINGS</button></div></Modal>;
 }
 
+function ManualAdjustmentModal({ teams: fixture, team, amount, onTeamChange, onAmountChange, onClose, onSubmit }) {
+  const teamCodes = [fixture.t1, fixture.t2];
+  const amounts = [1, 2, 5, -5, -2, -1];
+  const selectedFixtureTeams = fixture.teams || TEAMS;
+  return <Modal onClose={onClose} className="manual-adjustment-modal paper-panel" ariaLabel="Manual score adjustment"><div className="modal-heading"><div><span className="panel-kicker">OFFICIAL OVERRIDE</span><ComicTitle as="h2">Edit score manually</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="modal-scroll-content"><p>Use this only for rule-based additions or deductions outside normal ball-by-ball scoring.</p><div className="manual-adjustment-group"><span className="manual-adjustment-label">TEAM</span><div className="manual-adjustment-team-grid">{teamCodes.map((code) => <button type="button" key={code} className={team === code ? "selected" : ""} onClick={() => onTeamChange(code)}><TeamBadge code={code} teams={selectedFixtureTeams} /><b>{selectedFixtureTeams?.[code]?.name || code}</b></button>)}</div></div><div className="manual-adjustment-group"><span className="manual-adjustment-label">RUN ADJUSTMENT</span><div className="manual-adjustment-amount-grid">{amounts.map((value) => <button type="button" key={value} className={amount === value ? "selected" : ""} onClick={() => onAmountChange(value)}>{value > 0 ? `+${value}` : value}</button>)}</div></div></div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={() => onSubmit(team, amount)}>Apply {amount > 0 ? `+${amount}` : amount} to {team}</button></div></Modal>;
+}
+
 function NewBatsmanModal({ choices, value, setValue, slot, onClose, onSubmit }) {
   const selected = value || choices[0] || "";
   const choose = (name) => setValue(name);
@@ -750,10 +799,10 @@ function BowlerModal({ bowlingPlayers, currentInn, previousBowler, onSelect, onC
   return <Modal onClose={onClose} className="bowler-modal paper-panel" ariaLabel="Select new bowler"><div className="modal-heading"><div><span className="panel-kicker">NEW OVER</span><ComicTitle as="h2">Select new bowler</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="bowler-choice-grid">{unique(bowlingPlayers).map((p) => { const f = score.bowlers[p] || { balls: 0, runs: 0, wickets: 0 }; const locked = p === previousBowler; return <button type="button" className={`player-pick ${locked ? "locked" : ""}`} key={p} disabled={locked} onClick={() => onSelect(p)}><b>{p}</b><small>{Math.floor(f.balls / 6)}.{f.balls % 6} OV · {f.runs} R · {f.wickets} W</small><span>{locked ? "JUST BOWLED" : "SELECT →"}</span></button>; })}</div></Modal>;
 }
 
-function ResultPanel({ fixture, teams, matchId, state, isSuper, superOverIndex, stage, allStages, winnerText, tiedStage, nextSuperIndex, onScorecard }) {
+function ResultPanel({ fixture, teams, matchId, state, isSuper, superOverIndex, stage, allStages, winnerText, tiedStage, nextSuperIndex, onScorecard, manualAdjustments = { main: {}, superOvers: [] } }) {
   const title = winnerText ? `${winnerText} wins` : tiedStage ? (isSuper ? `Super Over ${superOverIndex} tied` : "Match tied") : `${stage.result?.winner || state.result?.winner} wins`;
   const description = stage.result?.desc || state.result?.desc || "";
-  return <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} COMPLETE` : "MATCH COMPLETE"}</span><ComicTitle as="h2">{title}</ComicTitle><p>{description}</p><div className="super-over-timeline">{allStages.filter((x) => x.innings?.length).map((x, index) => <div className="super-over-stage" key={`${x.label}-${index}`}><div className="super-over-stage__label">{x.label}</div><div className="result-scores">{x.innings.map((inn, i) => { const c = computeInnings(inn.deliveries, { maxOvers: inn.maxOvers || (index ? SUPER_OVER_MAX_OVERS : MAX_OVERS), maxWickets: inn.maxWickets || (index ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS) }); return <div key={`${x.label}-${i}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{c.runs}/{c.wickets}</strong><span>({c.overs}.{c.balls})</span></div>; })}</div></div>)}</div><div className="result-actions">{tiedStage && <a className="comic-button primary super-over-button" href={scorerPath(matchId, nextSuperIndex)}>BEGIN SUPER OVER{nextSuperIndex > 1 ? ` ${nextSuperIndex}` : ""} ↗</a>}<button className="central-scorecard-button" onClick={onScorecard}>VIEW SCORECARD ↗</button></div></section>;
+  return <section className="result-panel comic-panel paper-panel"><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} COMPLETE` : "MATCH COMPLETE"}</span><ComicTitle as="h2">{title}</ComicTitle><p>{description}</p><div className="super-over-timeline">{allStages.filter((x) => x.innings?.length).map((x, index) => <div className="super-over-stage" key={`${x.label}-${index}`}><div className="super-over-stage__label">{x.label}</div><div className="result-scores">{x.innings.map((inn, i) => { const stageAdjustments = index === 0 ? (manualAdjustments.main || {}) : (manualAdjustments.superOvers?.[index - 1] || inn.manualAdjustments || {}); const c = computeInnings(inn.deliveries, { maxOvers: inn.maxOvers || (index ? SUPER_OVER_MAX_OVERS : MAX_OVERS), maxWickets: inn.maxWickets || (index ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS), manualAdjustment: Number(stageAdjustments[inn.battingTeam]) || 0 }); return <div key={`${x.label}-${i}`}><TeamBadge code={inn.battingTeam} teams={teams} /><strong>{c.runs}/{c.wickets}</strong><span>({c.overs}.{c.balls})</span></div>; })}</div></div>)}</div><div className="result-actions">{tiedStage && <a className="comic-button primary super-over-button" href={scorerPath(matchId, nextSuperIndex)}>BEGIN SUPER OVER{nextSuperIndex > 1 ? ` ${nextSuperIndex}` : ""} ↗</a>}<button className="central-scorecard-button" onClick={onScorecard}>VIEW SCORECARD ↗</button></div></section>;
 }
 
 function NotFoundScorer() {

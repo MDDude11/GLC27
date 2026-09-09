@@ -46,7 +46,8 @@ export function normalizeDeliveries(value = []) {
 export function computeInnings(deliveries = [], options = {}) {
   const maxOvers = Number(options.maxOvers) > 0 ? Number(options.maxOvers) : MAX_OVERS;
   const maxWickets = Number(options.maxWickets) > 0 ? Number(options.maxWickets) : MAX_WICKETS;
-  const cacheKey = `${maxOvers}:${maxWickets}`;
+  const manualAdjustment = Number(options.manualAdjustment) || 0;
+  const cacheKey = `${maxOvers}:${maxWickets}:manual=${manualAdjustment}`;
   const list = normalizeDeliveries(deliveries);
   if (Array.isArray(list)) {
     const cachedMap = inningsCache.get(list);
@@ -113,6 +114,10 @@ export function computeInnings(deliveries = [], options = {}) {
     }
   }
   if (list.length && (legal % 6 !== 0 || currentOverRuns !== 0) && overRuns.length < maxOvers) overRuns.push(currentOverRuns);
+  if (manualAdjustment) {
+    runs += manualAdjustment;
+    cumulative.push({ ball: legal, runs, manualAdjustment });
+  }
 
   const result = {
     runs,
@@ -149,10 +154,13 @@ export function inningsFinished(inn, target = null, options = {}) {
 
 export function describeResult(match, options = {}) {
   const maxWickets = Number(options.maxWickets) > 0 ? Number(options.maxWickets) : MAX_WICKETS;
-  const a = computeInnings(match.innings[0]?.deliveries || [], options);
-  const b = computeInnings(match.innings[1]?.deliveries || [], options);
-  const t1 = match.innings[0]?.battingTeam || "";
-  const t2 = match.innings[1]?.battingTeam || "";
+  const manualAdjustments = options.manualAdjustments || {};
+  const aTeam = match.innings[0]?.battingTeam || "";
+  const bTeam = match.innings[1]?.battingTeam || "";
+  const a = computeInnings(match.innings[0]?.deliveries || [], { ...options, manualAdjustment: Number(manualAdjustments[aTeam]) || 0 });
+  const b = computeInnings(match.innings[1]?.deliveries || [], { ...options, manualAdjustment: Number(manualAdjustments[bTeam]) || 0 });
+  const t1 = aTeam;
+  const t2 = bTeam;
   if (b.runs > a.runs) return { winner: t2, desc: `${t2} won by ${Math.max(0, maxWickets - b.wickets)} wicket${maxWickets - b.wickets === 1 ? "" : "s"}` };
   if (a.runs > b.runs) return { winner: t1, desc: `${t1} won by ${a.runs - b.runs} run${a.runs - b.runs === 1 ? "" : "s"}` };
   return { winner: "tie", desc: "Match tied" };

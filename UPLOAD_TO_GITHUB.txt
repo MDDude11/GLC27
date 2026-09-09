@@ -1,4 +1,4 @@
-GLC27 ITB v19.0.0 — Match experience + recursive Super Overs
+GLC27 ITB v22.0.0 — Scorer controls + reliability + UI polish
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
@@ -13,7 +13,7 @@ C:/Users/manis/Downloads/GLC27_v11_FIXED/GLC27_v11_FIXED
 
 COMMIT + PUSH
 git add -A
-git commit -m "Release ITB v19 recursive Super Over and match UX"
+git commit -m "Release ITB v22 scorer controls and reliability fixes"
 git push origin main
 git log -2 --oneline
 
@@ -27,7 +27,13 @@ Do not run Git commands from the downloaded/source-folder path unless git rev-pa
 
 Verification focus:
   - production build completes and verify-build passes
-  - service-worker cache is glc27-v19-shell-v1
+  - service-worker cache is glc27-v22-shell-v1
   - scorer.html remains the stable scorer entry point
+  - Standalone scoring works after two wickets or one wicket plus one retirement
+  - EDIT MANUALLY adjusts either team by +1, +2, +5, -5, -2 or -1 without changing delivery statistics
+  - popup headers condense while scrolling in normal and compact modes
+  - Sound effects is off by default and click tune follows the setting
+  - RESET DEMO requires the scorer password
+  - supplied Gala Luxuria Cup 2027 emblem is registered as the favicon
   - tied stages expose recursive BEGIN SUPER OVER controls
   - main match + all Super Overs appear in viewer progression and scorecard

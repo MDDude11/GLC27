@@ -3,6 +3,19 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22",
+    items: [
+      "Fixed Standalone batting state after two wickets, or one wicket plus one retirement, so the sole remaining batter can score without a false non-striker requirement.",
+      "Added an EDIT MANUALLY scorer tool with +1, +2, +5, -5, -2 and -1 adjustments for either team without changing ball, batter or bowler statistics.",
+      "Made popup headers condense while their scrollable content is moving in both normal and compact modes.",
+      "Added a short UI click tune, controlled by Sound effects, with sound now genuinely off by default for fresh and migrated settings.",
+      "Added the supplied Gala Luxuria Cup 2027 emblem as the site favicon across the HTML entry points.",
+      "Protected RESET DEMO in matches.html behind the DRAFTS27 scorer password before the reset confirmation can run.",
+      "Added a small official-tools treatment around the new manual editor and refreshed the v22 release shell/cache version.",
+      "No intentional changes were made to ordinary wicket, retirement, Super Over or Firebase match lifecycle rules."
+    ]
+  },
+  {
     version: "ITB v21",
     items: [
       "Fixed the incoming-batter flow after a wicket or retirement so selecting a batter in the popup now commits that exact selection instead of revalidating against stale live-player state.",

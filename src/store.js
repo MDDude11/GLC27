@@ -28,8 +28,8 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
-const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v21";
-const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v20"];
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v22";
+const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v21", "glt_drafts_firebase_write_queue_v20"];
 const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v19", "glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();
@@ -117,7 +117,8 @@ function normalizeSuperOvers(value) {
     innings: Array.isArray(stage?.innings)
       ? stage.innings.map((inn) => ({ ...inn, deliveries: normalizeDeliveries(inn?.deliveries) }))
       : [],
-    live: { ...emptyMatch().live, ...(stage?.live || {}) }
+    live: { ...emptyMatch().live, ...(stage?.live || {}) },
+    manualAdjustments: { ...(stage?.manualAdjustments || {}) }
   }));
 }
 function normalizeStore(parsed) {
@@ -141,6 +142,7 @@ function normalizeStore(parsed) {
         ...emptyMatch().live,
         ...(match.live || {})
       },
+      manualAdjustments: { ...(emptyMatch().manualAdjustments || {}), ...(match?.manualAdjustments || {}), main: { ...(emptyMatch().manualAdjustments?.main || {}), ...(match?.manualAdjustments?.main || {}) }, superOvers: Array.isArray(match?.manualAdjustments?.superOvers) ? match.manualAdjustments.superOvers.map((entry) => ({ ...(entry || {}) })) : [] },
       superOvers: normalizeSuperOvers(match?.superOvers)
     };
   }

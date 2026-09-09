@@ -23,11 +23,12 @@ export const sitePath = (path = "/") => {
 };
 export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
+export const SOUND_SETTINGS_VERSION_KEY = "glt_drafts_sound_settings_v1";
 
 export const DEFAULT_SETTINGS = {
   themeColor: "yellow",
   reduceMotion: false,
-  soundEffects: true,
+  soundEffects: false,
   clickVibration: true,
   compactMode: false,
   largeText: false
@@ -40,8 +41,15 @@ export function loadSettings() {
     const currentRaw = localStorage.getItem(SETTINGS_KEY);
 
     if (currentRaw) {
-      const parsed = JSON.parse(currentRaw);
-      return { ...DEFAULT_SETTINGS, ...(parsed || {}) };
+      const parsed = JSON.parse(currentRaw) || {};
+      const needsSoundDefaultMigration = localStorage.getItem(SOUND_SETTINGS_VERSION_KEY) !== "1";
+      const merged = {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        ...(needsSoundDefaultMigration ? { soundEffects: false } : {})
+      };
+      if (needsSoundDefaultMigration) localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "1");
+      return merged;
     }
 
     // v2 incorrectly defaulted Reduce Motion on for mobile/coarse pointers.
@@ -54,13 +62,15 @@ export function loadSettings() {
       const migrated = {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        reduceMotion: false
+        reduceMotion: false,
+        soundEffects: false
       };
 
       localStorage.setItem(
         SETTINGS_KEY,
         JSON.stringify(migrated)
       );
+      localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "1");
 
       return migrated;
     }
@@ -198,7 +208,8 @@ export function emptyStage(index = 0) {
     innings: [],
     live: emptyLive(),
     result: null,
-    toss: null
+    toss: null,
+    manualAdjustments: {}
   };
 }
 
@@ -210,6 +221,7 @@ export function emptyMatch() {
     result: null,
     finalResult: null,
     toss: null,
+    manualAdjustments: { main: {}, superOvers: [] },
     superOvers: []
   };
 }

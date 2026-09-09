@@ -2317,3 +2317,30 @@ html:not([data-theme="light"]) .bowler-modal .player-pick.locked span {
   html[data-compact="1"] .match-experience-page .compact-player-strip { grid-template-columns:1fr; }
   html[data-compact="1"] .match-experience-page .compact-over-strip { grid-column:auto; justify-content:flex-start; }
 }
+
+/* v22 manual score overrides + modal header condensation. */
+.modal-shell.is-scrolled .modal-heading {
+  padding-block: 8px 7px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--line) 12%, transparent);
+}
+.modal-shell.is-scrolled .modal-heading .panel-kicker { font-size: 8px; }
+.modal-shell.is-scrolled .modal-heading .comic-title { font-size: clamp(24px, 4vw, 42px); margin-top: 2px; }
+.manual-adjustment-modal { width:min(700px,100%); }
+.manual-adjustment-group { display:grid; gap:9px; margin-top:18px; }
+.manual-adjustment-label { font:900 9px/1 "Barlow Condensed"; letter-spacing:.12em; color:var(--text-muted); }
+.manual-adjustment-team-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.manual-adjustment-team-grid button { display:flex; align-items:center; gap:10px; min-height:58px; padding:10px 12px; border:2px solid var(--line); background:var(--paper-light); color:var(--ink); box-shadow:4px 5px 0 var(--line); font-family:"Barlow Condensed"; font-size:15px; font-weight:900; text-transform:uppercase; }
+.manual-adjustment-team-grid button.selected { background:var(--accent); transform:translate(-1px,-1px); box-shadow:5px 6px 0 var(--line); }
+.manual-adjustment-amount-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; }
+.manual-adjustment-amount-grid button { min-height:48px; border:2px solid var(--line); background:var(--paper-light); color:var(--ink); box-shadow:3px 4px 0 var(--line); font:900 18px/1 "Barlow Condensed"; }
+.manual-adjustment-amount-grid button.selected { background:var(--accent); transform:translate(-1px,-1px); box-shadow:4px 5px 0 var(--line); }
+.scorer-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.scorer-footer-tools, .scorer-footer-links { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.scorer-footer-tools > span { font:900 8px/1 "Barlow Condensed"; letter-spacing:.14em; color:var(--text-muted); }
+.manual-edit-button { background:var(--accent) !important; color:var(--ink) !important; }
+@media(max-width:700px){
+  .manual-adjustment-team-grid, .manual-adjustment-amount-grid { grid-template-columns:1fr 1fr; }
+  .scorer-footer { align-items:stretch; }
+  .scorer-footer-tools, .scorer-footer-links { width:100%; }
+  .scorer-footer-tools .manual-edit-button, .scorer-footer-links > * { flex:1 1 0; }
+}

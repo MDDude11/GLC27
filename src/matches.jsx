@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MATCHES, matchPath, scorerPath } from "./data.js";
+import { MATCHES, matchPath, scorerPath, SCORER_PASSWORD } from "./data.js";
 import { fixtureFromInternalMatch, isInternalMatchId } from "./admin.js";
 import { getMatch, listInternalMatches, resetMatch, useLiveMatchState } from "./store.js";
 import { subscribeFirebaseMatches } from "./firebase.js";
@@ -69,7 +69,14 @@ function MatchCard({ fixture, index, internal = false, cardTheme = null }) {
     <div className="score-mini"><ScoreMini state={state} fixture={fixture} /></div>
     <div className="match-card-bottom"><span className={`status status-${state.status}`}>{status}</span><span>{fixture.time}{fixture.venue ? ` · ${fixture.venue}` : ""}</span></div>
     <div className="card-actions"><a className="comic-button viewer-card-button" href={matchPath(fixture.id)}>Open viewer ↗</a><a className="comic-button scorer-card-button" href={scorerPath(fixture.id)}>Scorer ↗</a></div>
-    {!internal && <button className="text-reset" onClick={() => { if (window.confirm(`Reset ${fixture.label}?`)) resetMatch(fixture.id); }}>Reset demo</button>}
+    {!internal && <button className="text-reset" onClick={() => {
+      const entered = window.prompt("Admin scorer password required to reset this demo match:");
+      if (entered !== SCORER_PASSWORD) {
+        if (entered !== null) window.alert("Incorrect scorer password.");
+        return;
+      }
+      if (window.confirm(`Reset ${fixture.label}?`)) resetMatch(fixture.id);
+    }}>Reset demo</button>}
   </article>;
 }
 

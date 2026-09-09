@@ -186,6 +186,36 @@ function sparkSvg() {
   return `<svg viewBox="0 0 100 100"><path d="M50 2 L61 38 L96 30 L67 54 L88 88 L50 66 L12 88 L33 54 L4 30 L39 38 Z"/></svg>`;
 }
 
+let clickAudioContext = null;
+function playClickTune() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    clickAudioContext ||= new AudioContextClass();
+    const ctx = clickAudioContext;
+    if (ctx.state === "suspended") void ctx.resume();
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.038, now + 0.008);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.125);
+    master.connect(ctx.destination);
+    [660, 990].forEach((frequency, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = now + index * 0.038;
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(index ? 0.0001 : 1, start);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.08);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(start);
+      osc.stop(start + 0.085);
+    });
+  } catch {}
+}
+
 function usePressFX() {
   useEffect(() => {
     let layer = document.querySelector(".pow-layer");
@@ -242,12 +272,13 @@ function usePressFX() {
       cancelledPointers.delete(event.pointerId);
 
       const s = settingsNow();
+      const isInteractive = target.closest("button, a, select, input, textarea, .run-key, .player-pick, .dismissed-option");
+      if (s.soundEffects && isInteractive) playClickTune();
       if (
         s.clickVibration &&
         navigator.vibrate &&
         (event.pointerType === "touch" || !event.pointerType)
       ) {
-        const isInteractive = target.closest("button, a, select, .run-key, .player-pick, .dismissed-option");
         if (isInteractive) navigator.vibrate(12);
       }
     };
@@ -474,11 +505,12 @@ export function Commentary({ deliveries, limit = null }) {
 }
 Commentary.defaultLimit = 6;
 
-export function Scorecard({ innings = [], superOvers = [] }) {
-  const renderStage = (stageInnings, label, keyPrefix) => <>
+export function Scorecard({ innings = [], superOvers = [], manualAdjustments = null }) {
+  const renderStage = (stageInnings, label, keyPrefix, adjustments = {}) => <>
     <div className="scorecard-stage-heading"><span>{label}</span></div>
     {stageInnings.map((inn, inningsIndex) => {
-      const c = computeInnings(inn.deliveries);
+      const adjustment = Number(adjustments?.[inn.battingTeam]) || 0;
+      const c = computeInnings(inn.deliveries, { manualAdjustment: adjustment });
       return <div className="scorecard-innings" key={`${keyPrefix}-${inn.battingTeam}-${inningsIndex}`}>
         <div className="scorecard-title"><b>{inn.battingTeam}</b><strong>{c.runs}/{c.wickets}</strong><span>{c.overs}.{c.balls} ov</span></div>
         <div className="scorecard-table">
@@ -491,8 +523,8 @@ export function Scorecard({ innings = [], superOvers = [] }) {
     })}
   </>;
   return <div className="scorecard-list">
-    {innings.length > 0 && renderStage(innings, "MAIN MATCH", "main")}
-    {superOvers.map((stage, index) => renderStage(stage.innings || [], `SUPER OVER ${index + 1}`, `super-${index + 1}`))}
+    {innings.length > 0 && renderStage(innings, "MAIN MATCH", "main", manualAdjustments?.main || {})}
+    {superOvers.map((stage, index) => renderStage(stage.innings || [], `SUPER OVER ${index + 1}`, `super-${index + 1}`, manualAdjustments?.superOvers?.[index] || stage?.manualAdjustments || {}))}
   </div>;
 }
 export function PlayerStats({ state, teamCodes, teams = TEAMS, mode = "viewer" }) {
@@ -519,7 +551,9 @@ export function PlayerStats({ state, teamCodes, teams = TEAMS, mode = "viewer" }
 
 export function Modal({ children, onClose, origin = null, className = "", ariaLabel = "Dialog", morphName = "" }) {
   const [closing, setClosing] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const closeTimerRef = useRef(null);
+  const shellRef = useRef(null);
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === "Escape") requestClose();
@@ -530,6 +564,18 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
       window.clearTimeout(closeTimerRef.current);
     };
   });
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return undefined;
+    const scrollNodes = [
+      ...shell.querySelectorAll(".modal-scroll-content, .scorecard-list, .commentary-list, .analysis-scroll")
+    ];
+    const update = () => setScrolled(scrollNodes.some((node) => node.scrollTop > 4));
+    const nodes = [...new Set([shell, ...scrollNodes])];
+    nodes.forEach((node) => node.addEventListener("scroll", update, { passive: true }));
+    update();
+    return () => nodes.forEach((node) => node.removeEventListener("scroll", update));
+  }, [children]);
   const requestClose = () => {
     if (closing) return;
     if (document.documentElement.dataset.reduceMotion === "1") { onClose?.(); return; }
@@ -539,7 +585,7 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
   const style = origin ? { "--origin-x": `${origin.x}px`, "--origin-y": `${origin.y}px` } : undefined;
   const shellStyle = style;
   const modal = <div className={`modal-backdrop ${closing ? "is-closing" : ""}`} onClick={requestClose} style={style} role="presentation">
-    <div className={`modal-shell ${className} ${closing ? "is-closing" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={ariaLabel} style={shellStyle}>{children}</div>
+    <div ref={shellRef} className={`modal-shell ${className} ${closing ? "is-closing" : ""} ${scrolled ? "is-scrolled" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={ariaLabel} style={shellStyle}>{children}</div>
   </div>;
   return typeof document === "undefined" ? modal : createPortal(modal, document.body);
 }
@@ -600,12 +646,12 @@ export function DetailedStatsModal({ innings = [], onClose, origin = null, morph
   </Modal>;
 }
 
-export function ScorecardModal({ innings = [], superOvers = [], onClose, origin = null, morphName = "" }) {
+export function ScorecardModal({ innings = [], superOvers = [], onClose, origin = null, morphName = "", manualAdjustments = null }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsOrigin, setDetailsOrigin] = useState(null);
   return <Modal origin={origin} onClose={onClose} className="scorecard-modal" ariaLabel="Full scorecard" morphName={morphName}>
     <div className="modal-heading"><div><span className="panel-kicker">OFFICIAL RECORD</span><ComicTitle as="h2">Full scorecard</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div>
-    <Scorecard innings={innings} superOvers={superOvers} />
+    <Scorecard innings={innings} superOvers={superOvers} manualAdjustments={manualAdjustments} />
     <button className="comic-button stats-family modal-details-button" onClick={(e) => morphOpen(e, "detailed-stats-morph", () => { setDetailsOrigin({ x: e.clientX, y: e.clientY }); setDetailsOpen(true); })}>Detailed stats ↗</button>
     {detailsOpen && <DetailedStatsModal innings={innings} origin={detailsOrigin} onClose={() => setDetailsOpen(false)} morphName="detailed-stats-morph" />}
   </Modal>;

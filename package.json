@@ -1,7 +1,7 @@
 {
-  "name": "glt-drafts-2027-itb21-firebase-pwa-stable",
+  "name": "glt-drafts-2027-itb22-firebase-pwa-stable",
   "private": true,
-  "version": "21.0.0",
+  "version": "22.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,5 +20,5 @@
   "devDependencies": {
     "typescript": "^5.9.2"
   },
-  "description": "Gala Luxuria Cup 2027 internal test build for The DRAFTS live match desk, with reliable incoming-batter selection, recursive Super Overs and in-place halftone dot growth."
+  "description": "Gala Luxuria Cup 2027 internal test build for The DRAFTS live match desk, with standalone-batter state repair, manual score overrides, anchored popup headers, click sound settings, protected demo reset and recursive Super Overs."
 }

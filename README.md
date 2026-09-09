@@ -1,31 +1,23 @@
-# v21 — Incoming batter + halftone interaction fix
+# ITB v22 — Scorer controls + reliability + UI polish
 
-ITB v21 is the follow-up patch to v20. It fixes the live replacement-batter flow after wickets/retirements and makes the background halftone dots enlarge in place rather than appearing as a second dot. The service-worker shell is versioned to `glc27-v21-shell-v2`.
+## v22.0.0
+- Fixed Standalone scoring after 2 wickets or 1 wicket + 1 retirement so a sole remaining batter no longer triggers a false non-striker requirement.
+- Added **EDIT MANUALLY** to adjust either team's score by **+1, +2, +5, -5, -2, -1** without creating a delivery or changing player/ball/bowler figures.
+- Popup headers now condense while scrolling in normal and compact modes.
+- Added a real short click tune controlled by Settings; sound is off by default and earlier settings are migrated off once for v22.
+- Added the supplied Gala Luxuria Cup 2027 emblem as the favicon across site entry points.
+- Protected **RESET DEMO** in matches.html with the scorer password.
+- Added v22 release notes to the site About page and refreshed the PWA shell version.
 
 ## v21.0.0 — Scorer replacement flow + in-place dot growth
-- Fixed the **Bring in** flow after a wicket or retirement. The popup now owns a stable eligible-player list and passes the selected batter directly to the scorer commit path.
-- Removed the stale-state race that could reject a batter immediately after the user had selected them with **Please select a new batsman**.
-- Added a final live-state availability check immediately before writing the replacement batter, for both the main match and recursive Super Overs.
-- Kept the existing wicket/retirement rules unchanged: genuine wickets remain wickets, Retired Hurt remains non-wicket, and Retired Out remains an innings wicket without a bowler wicket.
-- Changed the halftone pointer effect so dots grow at their original coordinates. The effect no longer pulls the dot away and paints another enlarged dot over the old position.
-- Bumped the PWA cache shell so the v21 scorer and halftone fixes are picked up by updated clients.
-
-# v20 — Match experience + Super Over reliability release
-
-The build previously labelled v21 is formally treated as v20. It contains the match-experience, retirement and recursive Super Over work from the prior release candidate.
+- Fixed the incoming-batter selection race after wickets/retirements.
+- Applied the incoming-batter fix to main match and recursive Super Over stages.
+- Made halftone dots grow at their original coordinates instead of pulling/repainting a second dot.
 
 ## v20.0.0 — Match experience + recursive Super Overs
-- Tied main matches expose **BEGIN SUPER OVER** beside **VIEW SCORECARD**.
-- Tied Super Overs recursively expose the same action for the next Super Over with no arbitrary depth limit.
-- Main match and every Super Over remain attached to the same Firebase match record and appear in progression/scorecard views.
-- Restored dedicated **RETIRED HURT** and **RETIRED OUT** controls below WIDE; normal WICKET contains only genuine dismissal types.
-- Retired Hurt is not a wicket or bowler wicket, uses a grey `H` counter state, and can return only after two wickets are down. Retired Out is an innings wicket but not a bowler wicket.
-- Added compact information-at-a-glance presentation, expandable commentary/scorecard rows, smaller live controls, and responsive mobile reflow across match-specific pages.
-- Added anchored section headers that condense while scrolling.
-- Removed Pace/Spin setup selection and made setup surfaces theme-aware.
-- Put popup layers above the footer/page chrome, refined Programme Drafts hover styling, and fixed the halftone interaction architecture.
-- Fixed the viewer `MAX_WICKETS` production reference error and hardened Super Over setup, duplicate-player and stale dismissed-player handling.
-
+- Added recursive Super Overs, stage progression and scorecard coverage.
+- Added Retired Hurt / Retired Out controls with the defined wicket/return semantics.
+- Added compact match presentation, anchored headers, setup/theme fixes and match UI hardening.
 
 # GLsiteITB18 — Gala Luxuria Cup 2027 / The *DRAFTS*
 
