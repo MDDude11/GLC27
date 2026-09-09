@@ -197,21 +197,21 @@ function playClickTune() {
     const now = ctx.currentTime;
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.038, now + 0.008);
+    master.gain.exponentialRampToValueAtTime(0.072, now + 0.008);
     master.gain.exponentialRampToValueAtTime(0.0001, now + 0.125);
     master.connect(ctx.destination);
-    [660, 990].forEach((frequency, index) => {
+    [620, 930].forEach((frequency, index) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       const start = now + index * 0.038;
       osc.type = "triangle";
       osc.frequency.setValueAtTime(frequency, start);
       gain.gain.setValueAtTime(index ? 0.0001 : 1, start);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.095);
       osc.connect(gain);
       gain.connect(master);
       osc.start(start);
-      osc.stop(start + 0.085);
+      osc.stop(start + 0.1);
     });
   } catch {}
 }

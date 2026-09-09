@@ -3,6 +3,17 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.5",
+    items: [
+      "Made scorer/setup controls inherit the active theme for surfaces, borders, shadows, labels, focus states and select arrows.",
+      "Made Sound effects explicitly OFF by default with a one-time migration for existing settings that retained the previous incorrect/default-on state.",
+      "Tuned the short interaction cue so it is audible when enabled while remaining subtle.",
+      "Added RESUME UNDOING when Undo reaches a mandatory-choice popup, allowing the scorer to continue undoing to the previous normal state instead of being trapped at the same required choice.",
+      "Applied the mandatory undo checkpoint handling to incoming-batter replacement and Retired Hurt return choices.",
+      "No intentional ordinary scoring-rule, Firebase-schema or match-lifecycle changes were introduced."
+    ]
+  },
+  {
     version: "ITB v22",
     items: [
       "Fixed Standalone batting state after two wickets, or one wicket plus one retirement, so the sole remaining batter can score without a false non-striker requirement.",

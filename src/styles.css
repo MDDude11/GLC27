@@ -2344,3 +2344,31 @@ html:not([data-theme="light"]) .bowler-modal .player-pick.locked span {
   .scorer-footer-tools, .scorer-footer-links { width:100%; }
   .scorer-footer-tools .manual-edit-button, .scorer-footer-links > * { flex:1 1 0; }
 }
+
+/* ITB v22.5 — theme-consistent scorer setup controls and undo checkpoints. */
+.match-experience-page .setup-grid > label,
+.match-experience-page .setup-grid > .setup-derived {
+  color: var(--match-ink) !important;
+}
+.match-experience-page .setup-grid > label select,
+.match-experience-page .setup-grid > label input,
+.match-experience-page .setup-grid > label textarea {
+  background: color-mix(in srgb, var(--match-surface-2) 84%, var(--accent) 16%) !important;
+  color: var(--match-ink) !important;
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--match-line)) !important;
+  box-shadow: 3px 4px 0 color-mix(in srgb, var(--match-line) 72%, transparent) !important;
+}
+.match-experience-page .setup-grid > label select:focus-visible,
+.match-experience-page .setup-grid > label input:focus-visible,
+.match-experience-page .setup-grid > label textarea:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+.match-experience-page .setup-grid > label select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--match-ink) 50%), linear-gradient(135deg, var(--match-ink) 50%, transparent 50%) !important;
+}
+.mandatory-undo-copy { margin: 0 22px 2px; color: var(--text-muted); line-height: 1.45; }
+.mandatory-undo-note { margin-top: 10px; text-align:center; }
+@media (max-width: 700px) {
+  .mandatory-undo-copy { margin: 0 15px 2px; }
+}

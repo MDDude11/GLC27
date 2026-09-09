@@ -1,5 +1,25 @@
 # GLC27 ITB Patch Notes
 
+## v22.5.0 — Theme + sound + undo refinement
+
+### Theme consistency
+- Updated scorer/setup controls to inherit the active site theme instead of using legacy light/default fills.
+- Team-derived cards, toss controls and player selectors now share the active surface, accent, border, shadow and focus treatment.
+- Kept the treatment consistent across light/dark presentation and all accent choices.
+
+### Interaction sound
+- Made Sound effects explicitly **OFF by default** with a one-time migration for existing settings that retained the previous incorrect/default-on state.
+- Kept the click tune fully controlled by the Settings toggle.
+- Tuned the cue so it is actually audible when enabled while remaining short and unobtrusive.
+
+### Undo checkpoints
+- When Undo restores a state that requires a mandatory player choice, the popup now identifies that it was reached because of Undo and provides **RESUME UNDOING**.
+- RESUME UNDOING continues through the next history checkpoint instead of forcing the same mandatory choice again.
+- Applied this to incoming-batter replacement and Retired Hurt return checkpoints, with the same checkpoint mechanism ready to cover additional mandatory-choice states.
+- Ordinary mandatory choices opened by normal scoring/actions do not show RESUME UNDOING.
+
+No ordinary scoring rules, Firebase schema or match lifecycle semantics were intentionally changed.
+
 ## v22.0.0 — Scorer controls, popup polish and state reliability
 
 ### Standalone batting state

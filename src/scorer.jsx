@@ -149,6 +149,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const [manualAdjustOpen, setManualAdjustOpen] = useState(false);
   const [manualAdjustTeam, setManualAdjustTeam] = useState(fixture.t1);
   const [manualAdjustAmount, setManualAdjustAmount] = useState(1);
+  const [mandatoryUndoType, setMandatoryUndoType] = useState("");
   const preparingSuperRef = useRef(false);
 
   const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1, teams)) : [];
@@ -187,6 +188,36 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const retiredHurt = unique(currentStage?.live?.retiredHurt || (isSuper ? [] : state?.live?.retiredHurt || []));
   const canReturnHurt = retiredHurt.length > 0 && score.wickets >= 2;
 
+  const inspectMandatoryState = (snapshot) => {
+    const stage = isSuper
+      ? normaliseStage(snapshot?.superOvers?.[superOverIndex - 1], superOverIndex, teams)
+      : {
+          status: snapshot?.status || "upcoming",
+          innings: Array.isArray(snapshot?.innings) ? snapshot.innings : [],
+          live: snapshot?.live || emptyLive(),
+          result: snapshot?.result || null
+        };
+    const innings = Array.isArray(stage.innings) ? stage.innings : [];
+    const inn = innings.at(-1);
+    if (!inn || stage.status !== "live") return null;
+    const deliveries = deliveryList(inn.deliveries);
+    const inningsScore = computeInnings(deliveries, { maxOvers, maxWickets });
+    const hurt = unique(stage.live?.retiredHurt || []);
+    if (hurt.length && inningsScore.wickets >= 2) return { type: "return", player: hurt[0] };
+
+    const latest = deliveries.at(-1);
+    const live = stage.live || emptyLive();
+    const incomingSlot = !live.striker ? "striker" : (!live.nonStriker ? "nonStriker" : "");
+    const activePlayers = unique(teams[inn.battingTeam]?.players || []);
+    const dismissed = unique(deliveries.filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));
+    const remaining = activePlayers.filter((player) => !dismissed.includes(player));
+    const choices = unique(activePlayers.filter((player) => player !== live.striker && player !== live.nonStriker && !dismissed.includes(player)));
+    if (latest?.dismissed && (latest.wicket || latest.retired) && incomingSlot && remaining.length > 1 && choices.length) {
+      return { type: "newBatsman", slot: incomingSlot, excluded: latest.dismissed, choices };
+    }
+    return null;
+  };
+
   useEffect(() => useLiveMatchState(matchId, setState), [matchId]);
   useEffect(() => {
     if (!toast) return undefined;
@@ -207,6 +238,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const pushResult = (result, message = "") => {
     if (!result) return null;
     setHistory((old) => [...old, result.previous].slice(-40));
+    setMandatoryUndoType("");
     setState(result.next);
     if (message) setToast(message);
     return result.next;
@@ -664,13 +696,43 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     const previous = history.at(-1);
     if (!previous) return setToast("Nothing to undo");
     const result = patchMatch(matchId, previous);
-    setState(clone(result.next)); setHistory((h) => h.slice(0, -1)); setWicketOpen(false); setNewBatsmanOpen(false); setNewBatsmanChoices([]); setBowlerOpen(false); setReturnOpen(false); setToast("Last action undone");
+    const mandatory = inspectMandatoryState(result.next);
+    setHistory((h) => h.slice(0, -1));
+    setWicketOpen(false);
+    setBowlerOpen(false);
+    setReturnOpen(false);
+    setNewBatsmanOpen(false);
+    setNewBatsmanChoices([]);
+    setMandatoryUndoType(mandatory?.type || "");
+    setState(clone(result.next));
+
+    if (mandatory?.type === "newBatsman") {
+      setNewBatsmanChoices(mandatory.choices);
+      setNewBatsman(mandatory.choices[0] || "");
+      setNewBatsmanSlot(mandatory.slot);
+      setNewBatsmanExcluded(mandatory.excluded || "");
+      setNewBatsmanOpen(true);
+    } else if (mandatory?.type === "return") {
+      setReturnPlayer(mandatory.player || "");
+      setReturnOpen(true);
+    }
+    setToast(mandatory ? "Undo paused at a required choice" : "Last action undone");
+  };
+
+  const resumeUndoing = () => {
+    setMandatoryUndoType("");
+    setWicketOpen(false);
+    setNewBatsmanOpen(false);
+    setNewBatsmanChoices([]);
+    setBowlerOpen(false);
+    setReturnOpen(false);
+    window.setTimeout(() => undo(), 0);
   };
 
   const reset = () => {
     if (!window.confirm(`Reset ${fixture.label}?`)) return;
     const result = patchMatch(matchId, () => ({ status: "upcoming", innings: [], live: emptyLive(), result: null, finalResult: null, toss: null, superOvers: [] }));
-    setState(result.next); setHistory([]); setNewBatsmanOpen(false); setNewBatsmanChoices([]); setToast("Match reset");
+    setState(result.next); setHistory([]); setMandatoryUndoType(""); setNewBatsmanOpen(false); setNewBatsmanChoices([]); setReturnOpen(false); setToast("Match reset");
   };
 
   const currentResult = isSuper ? stageResult(currentStage) : state.result;
@@ -714,9 +776,9 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
     {wicketOpen && <WicketModal origin={wicketOrigin} state={{ live: currentStage.live }} battingPlayers={activeBattingPlayers} bowlingPlayers={activeBowlingPlayers} draft={wicketDraft} setDraft={setWicketDraft} onClose={() => setWicketOpen(false)} onSubmit={submitWicket} />}
     {retirementOpen && <RetirementModal origin={retirementOrigin} type={retirementType} player={retirementPlayer} players={[currentStage.live.striker, currentStage.live.nonStriker].filter(Boolean)} onChange={setRetirementPlayer} onClose={() => setRetirementOpen(false)} onSubmit={submitRetirement} />}
-    {newBatsmanOpen && <NewBatsmanModal choices={newBatsmanChoices} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => setNewBatsmanOpen(false)} onSubmit={confirmNewBatsman} />}
+    {newBatsmanOpen && <NewBatsmanModal choices={newBatsmanChoices} value={newBatsman} setValue={setNewBatsman} slot={newBatsmanSlot} onClose={() => setNewBatsmanOpen(false)} onSubmit={confirmNewBatsman} allowResumeUndo={mandatoryUndoType === "newBatsman"} onResumeUndo={resumeUndoing} />}
     {bowlerOpen && <BowlerModal bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={currentStage.live.previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
-    {returnOpen && <RetiredHurtReturnModal players={retiredHurt} value={returnPlayer} setValue={setReturnPlayer} onBringBack={bringBackHurt} onEnd={endInningsFromHurt} onClose={() => setReturnOpen(false)} />}
+    {returnOpen && <RetiredHurtReturnModal players={retiredHurt} value={returnPlayer} setValue={setReturnPlayer} onBringBack={bringBackHurt} onEnd={endInningsFromHurt} onClose={() => setReturnOpen(false)} allowResumeUndo={mandatoryUndoType === "return"} onResumeUndo={resumeUndoing} />}
     {manualAdjustOpen && <ManualAdjustmentModal teams={fixture} team={manualAdjustTeam} amount={manualAdjustAmount} onTeamChange={setManualAdjustTeam} onAmountChange={setManualAdjustAmount} onClose={() => setManualAdjustOpen(false)} onSubmit={applyManualAdjustment} />}
     {commentaryOpen && <Modal onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
     {scorecardOpen && <ScorecardModal innings={state.innings || []} superOvers={rootSuperOvers} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} manualAdjustments={state.manualAdjustments || { main: {}, superOvers: [] }} />}
@@ -778,8 +840,8 @@ function RetirementModal({ origin, type, player, players, onChange, onClose, onS
   return <Modal origin={origin} onClose={onClose} className="retirement-modal paper-panel" ariaLabel={type}><div className="modal-heading"><div><span className="panel-kicker">SPECIAL PLAYER STATUS</span><ComicTitle as="h2">{type}</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><p>{type === "Retired Hurt" ? "No wicket is recorded. The player becomes eligible to return only after two wickets are down." : "Counts as an innings wicket, but not as a bowler wicket."}</p><label>Player<select value={player} onChange={(e) => onChange(e.target.value)}>{players.map((p) => <option key={p}>{p}</option>)}</select></label><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={onSubmit}>Confirm {type} <span>→</span></button></div></Modal>;
 }
 
-function RetiredHurtReturnModal({ players, value, setValue, onBringBack, onEnd, onClose }) {
-  return <Modal onClose={onClose} className="retirement-return-modal paper-panel" ariaLabel="Retired hurt return"><div className="modal-heading"><div><span className="panel-kicker">RETIREMENT / RETURN</span><ComicTitle as="h2">A batter is available to return.</ComicTitle></div></div><p>{value || players[0] || "The retired-hurt player"} can return now because two wickets are down.</p><div className="retirement-player-choice">{players.map((p) => <button key={p} className={value === p ? "selected" : ""} onClick={() => setValue(p)}>{p}</button>)}</div><div className="modal-actions"><button className="comic-button primary" onClick={onBringBack}>BRING PLAYER BACK</button><button className="back-button viewer-family" onClick={onEnd}>END INNINGS</button></div></Modal>;
+function RetiredHurtReturnModal({ players, value, setValue, onBringBack, onEnd, onClose, allowResumeUndo, onResumeUndo }) {
+  return <Modal onClose={allowResumeUndo ? undefined : onClose} className="retirement-return-modal paper-panel" ariaLabel="Retired hurt return"><div className="modal-heading"><div><span className="panel-kicker">RETIREMENT / RETURN</span><ComicTitle as="h2">A batter is available to return.</ComicTitle></div>{!allowResumeUndo && <button className="modal-close-button close-button" onClick={onClose}>Close ×</button>}</div><p>{allowResumeUndo ? "Undo reached this required choice. Continue undoing to return to the previous normal state." : `${value || players[0] || "The retired-hurt player"} can return now because two wickets are down.`}</p>{!allowResumeUndo && <div className="retirement-player-choice">{players.map((p) => <button key={p} className={value === p ? "selected" : ""} onClick={() => setValue(p)}>{p}</button>)}</div>}{allowResumeUndo && <div className="incoming-slot mandatory-undo-note">MANDATORY CHOICE FROM UNDO</div>}<div className="modal-actions">{allowResumeUndo && <button className="comic-button secondary" onClick={onResumeUndo}>RESUME UNDOING</button>}<button className="comic-button primary" onClick={onBringBack}>BRING PLAYER BACK</button><button className="back-button viewer-family" onClick={onEnd}>END INNINGS</button></div></Modal>;
 }
 
 function ManualAdjustmentModal({ teams: fixture, team, amount, onTeamChange, onAmountChange, onClose, onSubmit }) {
@@ -789,10 +851,10 @@ function ManualAdjustmentModal({ teams: fixture, team, amount, onTeamChange, onA
   return <Modal onClose={onClose} className="manual-adjustment-modal paper-panel" ariaLabel="Manual score adjustment"><div className="modal-heading"><div><span className="panel-kicker">OFFICIAL OVERRIDE</span><ComicTitle as="h2">Edit score manually</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div><div className="modal-scroll-content"><p>Use this only for rule-based additions or deductions outside normal ball-by-ball scoring.</p><div className="manual-adjustment-group"><span className="manual-adjustment-label">TEAM</span><div className="manual-adjustment-team-grid">{teamCodes.map((code) => <button type="button" key={code} className={team === code ? "selected" : ""} onClick={() => onTeamChange(code)}><TeamBadge code={code} teams={selectedFixtureTeams} /><b>{selectedFixtureTeams?.[code]?.name || code}</b></button>)}</div></div><div className="manual-adjustment-group"><span className="manual-adjustment-label">RUN ADJUSTMENT</span><div className="manual-adjustment-amount-grid">{amounts.map((value) => <button type="button" key={value} className={amount === value ? "selected" : ""} onClick={() => onAmountChange(value)}>{value > 0 ? `+${value}` : value}</button>)}</div></div></div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button><button className="comic-button primary" onClick={() => onSubmit(team, amount)}>Apply {amount > 0 ? `+${amount}` : amount} to {team}</button></div></Modal>;
 }
 
-function NewBatsmanModal({ choices, value, setValue, slot, onClose, onSubmit }) {
+function NewBatsmanModal({ choices, value, setValue, slot, onClose, onSubmit, allowResumeUndo, onResumeUndo }) {
   const selected = value || choices[0] || "";
   const choose = (name) => setValue(name);
-  return <Modal onClose={onClose} className="new-batsman-modal paper-panel" ariaLabel="Next batter"><div className="modal-heading"><div><span className="panel-kicker">NEXT BATTER</span><ComicTitle as="h2">Who walks in?</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div>{choices.length ? <><label>Incoming batter<select value={selected} onChange={(e) => choose(e.target.value)}>{choices.map((p) => <option key={p} value={p}>{p}</option>)}</select></label><div className="incoming-player-grid" role="listbox" aria-label="Available batters">{choices.map((p) => <button type="button" role="option" aria-selected={selected === p} key={p} className={`player-pick ${selected === p ? "selected" : ""}`} onClick={() => choose(p)}><b>{p}</b><span>{selected === p ? "SELECTED" : "SELECT"}</span></button>)}</div></> : <p>No eligible batter remains.</p>}<div className="incoming-slot">{slot === "striker" ? "STRIKER'S END" : "NON-STRIKER'S END"}</div><div className="modal-actions"><button className="back-button viewer-family" onClick={onClose}>Cancel</button>{choices.length > 0 && <button className="comic-button primary" onClick={() => onSubmit(selected)} disabled={!selected}>Bring in <span>→</span></button>}</div></Modal>;}
+  return <Modal onClose={allowResumeUndo ? undefined : onClose} className="new-batsman-modal paper-panel" ariaLabel="Next batter"><div className="modal-heading"><div><span className="panel-kicker">NEXT BATTER</span><ComicTitle as="h2">Who walks in?</ComicTitle></div>{!allowResumeUndo && <button className="modal-close-button close-button" onClick={onClose}>Close ×</button>}</div>{allowResumeUndo && <p className="mandatory-undo-copy">Undo reached this required player choice. Continue undoing to return to the previous normal state.</p>}{choices.length ? <><label>Incoming batter<select value={selected} onChange={(e) => choose(e.target.value)}>{choices.map((p) => <option key={p} value={p}>{p}</option>)}</select></label><div className="incoming-player-grid" role="listbox" aria-label="Available batters">{choices.map((p) => <button type="button" role="option" aria-selected={selected === p} key={p} className={`player-pick ${selected === p ? "selected" : ""}`} onClick={() => choose(p)}><b>{p}</b><span>{selected === p ? "SELECTED" : "SELECT"}</span></button>)}</div></> : <p>No eligible batter remains.</p>}<div className="incoming-slot">{slot === "striker" ? "STRIKER'S END" : "NON-STRIKER'S END"}</div><div className="modal-actions">{allowResumeUndo && <button className="comic-button secondary" onClick={onResumeUndo}>RESUME UNDOING</button>}{!allowResumeUndo && <button className="back-button viewer-family" onClick={onClose}>Cancel</button>}{choices.length > 0 && <button className="comic-button primary" onClick={() => onSubmit(selected)} disabled={!selected}>Bring in <span>→</span></button>}</div></Modal>;}
 
 function BowlerModal({ bowlingPlayers, currentInn, previousBowler, onSelect, onClose }) {
   const score = currentInn ? computeInnings(currentInn.deliveries) : { bowlers: {} };

@@ -1,4 +1,11 @@
-# ITB v22 — Scorer controls + reliability + UI polish
+# ITB v22.5 — Theme + sound + undo refinement
+
+## v22.5.0
+- Made scorer/setup controls follow the active visual theme instead of using legacy light/default fills, including borders, shadows, labels, focus states and select arrows.
+- Fixed interaction sound settings so **Sound effects is OFF by default**, including a one-time migration of existing settings that still carried the broken/default-on state.
+- Tuned the short interaction cue so it is actually audible while remaining subtle.
+- Added **RESUME UNDOING** to mandatory-choice states reached because of Undo, allowing the scorer to continue to the previous normal state rather than being trapped at the same required choice.
+- Applied the mandatory-choice undo handling to incoming-batter and Retired Hurt return checkpoints.
 
 ## v22.0.0
 - Fixed Standalone scoring after 2 wickets or 1 wicket + 1 retirement so a sole remaining batter no longer triggers a false non-striker requirement.
