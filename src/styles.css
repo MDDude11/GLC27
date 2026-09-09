@@ -2345,7 +2345,7 @@ html:not([data-theme="light"]) .bowler-modal .player-pick.locked span {
   .scorer-footer-tools .manual-edit-button, .scorer-footer-links > * { flex:1 1 0; }
 }
 
-/* ITB v22.5 — theme-consistent scorer setup controls and undo checkpoints. */
+/* ITB v22.6 — robust setup select theming and interaction audio. */
 .match-experience-page .setup-grid > label,
 .match-experience-page .setup-grid > .setup-derived {
   color: var(--match-ink) !important;
@@ -2364,8 +2364,31 @@ html:not([data-theme="light"]) .bowler-modal .player-pick.locked span {
   outline: 2px solid var(--accent) !important;
   outline-offset: 2px;
 }
-.match-experience-page .setup-grid > label select {
-  background-image: linear-gradient(45deg, transparent 50%, var(--match-ink) 50%), linear-gradient(135deg, var(--match-ink) 50%, transparent 50%) !important;
+/* v22.6: never allow the browser's dark native select chrome to replace the
+   GLC setup styling. Keep the arrow in-theme and preserve the chosen surface. */
+html[data-theme="light"] .match-experience-page .setup-grid > label select {
+  color-scheme: light;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px !important;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--match-ink) 50%) right 14px center / 6px 6px no-repeat,
+    linear-gradient(135deg, var(--match-ink) 50%, transparent 50%) right 9px center / 6px 6px no-repeat,
+    color-mix(in srgb, var(--match-surface-2) 84%, var(--accent) 16%) !important;
+}
+html:not([data-theme="light"]) .match-experience-page .setup-grid > label select {
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px !important;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--match-ink) 50%) right 14px center / 6px 6px no-repeat,
+    linear-gradient(135deg, var(--match-ink) 50%, transparent 50%) right 9px center / 6px 6px no-repeat,
+    color-mix(in srgb, var(--match-surface-2) 86%, var(--accent) 14%) !important;
+}
+.match-experience-page .setup-grid > label select option {
+  background: var(--match-surface-2);
+  color: var(--match-ink);
 }
 .mandatory-undo-copy { margin: 0 22px 2px; color: var(--text-muted); line-height: 1.45; }
 .mandatory-undo-note { margin-top: 10px; text-align:center; }

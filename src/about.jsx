@@ -3,6 +3,17 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.6",
+    items: [
+      "Fixed scorer/setup select controls that could render as browser-default black fields with mismatched native arrows.",
+      "Applied a theme-aware custom select treatment to opening-player setup, second-innings setup and Super Over setup.",
+      "Reworked the interaction click cue so it resumes the Web Audio context from the user gesture before scheduling the audible two-note tune.",
+      "Kept Sound effects OFF by default and versioned the sound migration so stale settings cannot leave the feature incorrectly enabled.",
+      "Bumped the PWA shell cache for v22.6 asset delivery.",
+      "No intentional scoring, Firebase schema or match-lifecycle changes were introduced."
+    ]
+  },
+  {
     version: "ITB v22.5",
     items: [
       "Made scorer/setup controls inherit the active theme for surfaces, borders, shadows, labels, focus states and select arrows.",

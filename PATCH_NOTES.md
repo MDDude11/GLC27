@@ -1,5 +1,20 @@
 # GLC27 ITB Patch Notes
 
+## v22.6.0 — Setup theming + interaction sound repair
+
+### Setup control theming
+- Fixed the scorer setup `<select>` controls showing as browser-default black/dark fields with oversized native arrows instead of the GLC visual language.
+- Added a theme-aware custom dropdown arrow, readable selected-value styling, consistent borders/shadows, and appropriate colour-scheme handling for light and dark themes.
+- Applied the same treatment to opening-player setup, second-innings setup and Super Over setup.
+
+### Interaction sound
+- Reworked the click cue so the browser AudioContext is resumed from the initiating user gesture before tones are scheduled.
+- Increased the cue to an intentionally audible but still brief two-note comic tick.
+- Kept Sound effects **OFF by default** and versioned the sound migration again so stale v22.5 state cannot leave the toggle incorrectly presented as on.
+- The Settings toggle remains the single source of truth for whether interaction audio plays.
+
+No scoring rules, Firebase schema or match-lifecycle semantics were intentionally changed.
+
 ## v22.5.0 — Theme + sound + undo refinement
 
 ### Theme consistency

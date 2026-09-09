@@ -187,32 +187,58 @@ function sparkSvg() {
 }
 
 let clickAudioContext = null;
+let clickAudioResumePromise = null;
+
+function scheduleClickTune(ctx) {
+  if (!ctx || ctx.state !== "running") return;
+  const now = ctx.currentTime + 0.006;
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, now);
+  master.gain.exponentialRampToValueAtTime(0.16, now + 0.006);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  master.connect(ctx.destination);
+
+  [
+    { frequency: 560, start: 0, duration: 0.095 },
+    { frequency: 840, start: 0.042, duration: 0.12 },
+  ].forEach(({ frequency, start, duration }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const at = now + start;
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(frequency, at);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.9, at + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(at);
+    osc.stop(at + duration + 0.015);
+  });
+
+  window.setTimeout(() => {
+    try { master.disconnect(); } catch {}
+  }, 260);
+}
+
 function playClickTune() {
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
     clickAudioContext ||= new AudioContextClass();
     const ctx = clickAudioContext;
-    if (ctx.state === "suspended") void ctx.resume();
-    const now = ctx.currentTime;
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.072, now + 0.008);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.125);
-    master.connect(ctx.destination);
-    [620, 930].forEach((frequency, index) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const start = now + index * 0.038;
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(frequency, start);
-      gain.gain.setValueAtTime(index ? 0.0001 : 1, start);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.095);
-      osc.connect(gain);
-      gain.connect(master);
-      osc.start(start);
-      osc.stop(start + 0.1);
-    });
+
+    if (ctx.state === "suspended") {
+      if (!clickAudioResumePromise) {
+        clickAudioResumePromise = ctx.resume().catch(() => {}).finally(() => {
+          clickAudioResumePromise = null;
+        });
+      }
+      void clickAudioResumePromise.then(() => scheduleClickTune(ctx));
+      return;
+    }
+
+    scheduleClickTune(ctx);
   } catch {}
 }
 

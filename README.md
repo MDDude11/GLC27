@@ -1,4 +1,11 @@
-# ITB v22.5 — Theme + sound + undo refinement
+# ITB v22.6 — Setup theming + interaction sound repair
+
+## v22.6.0
+- Fixed scorer/setup `<select>` controls rendering with browser-default dark/black chrome; they now use the active GLC theme with a custom in-theme arrow and readable selected text.
+- Applied the setup-control correction to opening-player setup, second-innings setup and Super Over setup.
+- Rebuilt the interaction click cue so it reliably resumes/starts the Web Audio context from the user gesture and uses an audible two-note comic tick when Sound effects is enabled.
+- Kept **Sound effects OFF by default** and removed the possibility of the stale/default-on presentation surviving the new sound migration.
+- Bumped the PWA shell version so v22.6 assets supersede cached v22.5 assets.
 
 ## v22.5.0
 - Made scorer/setup controls follow the active visual theme instead of using legacy light/default fills, including borders, shadows, labels, focus states and select arrows.

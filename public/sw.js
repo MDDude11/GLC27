@@ -1,4 +1,4 @@
-const CACHE = "glc27-v22.5-shell-v1";
+const CACHE = "glc27-v22.6-shell-v1";
 const BASE = new URL("./", self.registration.scope).pathname;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const LOCAL_PAGES = [
@@ -18,7 +18,8 @@ const LOCAL_PAGES = [
   "about.html",
   "manifest.webmanifest",
   "assets/pwa-192.png",
-  "assets/pwa-512.png"
+  "assets/pwa-512.png",
+  "assets/glc27-favicon.png"
 ];
 const RUNTIME_ORIGINS = new Set([
   "https://www.gstatic.com",

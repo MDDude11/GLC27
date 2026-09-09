@@ -101,7 +101,7 @@ export default function SettingsPage() {
         <article className="comic-panel paper-panel settings-card">
           <span className="panel-kicker">FEEDBACK</span>
           <ComicTitle as="h2">Sound effects</ComicTitle>
-          <p>Play short comic-style sound cues for boundaries and wickets.</p>
+          <p>Play a short comic-style click cue when you use the interface.</p>
           <Toggle label={settings.soundEffects ? "Sound effects on" : "Sound effects off"} checked={settings.soundEffects} onChange={(v) => updateSetting("soundEffects", v)} />
           <small className="settings-footnote">Muted automatically if your device is on silent.</small>
         </article>
