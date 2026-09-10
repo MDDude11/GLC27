@@ -3,6 +3,20 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.8",
+    items: [
+      "Fixed standalone batting state so a sole remaining batter cannot be paired with a stale or nonexistent non-striker after wickets or retirements.",
+      "Applied the v22.6 setup-control theming fixes across opening-player, second-innings and Super Over selectors and kept setup typography within the page layout.",
+      "Added theme-aware custom scrollbars across page and popup scroll surfaces.",
+      "Made popup header condensation generic to the actual scrollable descendant, so long commentary, scorecard, analysis and selection popups can anchor and shrink reliably in normal and compact mode.",
+      "Added a timed REDO button after Undo with a 10-second window that is invalidated by a new action.",
+      "Fixed Retired Out when no eligible replacement remains so the scorer enters the solo-batter state rather than forcing an incoming-batter selection.",
+      "Replaced the small GLC27 header mark with the supplied full Gala Luxuria Cup 2027 crest.",
+      "Changed the homepage carousel to 4-second normal messages and a 10-second STEAMING FURY display.",
+      "Sound effects remain OFF by default for new and migrated settings."
+    ]
+  },
+  {
     version: "ITB v22.6",
     items: [
       "Fixed scorer/setup select controls that could render as browser-default black fields with mismatched native arrows.",

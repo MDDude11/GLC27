@@ -2395,3 +2395,69 @@ html:not([data-theme="light"]) .match-experience-page .setup-grid > label select
 @media (max-width: 700px) {
   .mandatory-undo-copy { margin: 0 15px 2px; }
 }
+
+
+/* v22.8 — unified theme controls, scrollbars, popup scrolling and crest branding */
+:root {
+  --scroll-track: color-mix(in srgb, var(--paper-2) 92%, var(--line) 8%);
+  --scroll-thumb: color-mix(in srgb, var(--ink-muted) 72%, var(--accent) 28%);
+  --scroll-thumb-hover: color-mix(in srgb, var(--ink) 76%, var(--accent) 24%);
+}
+html, body, * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { width: 12px; height: 12px; }
+html::-webkit-scrollbar-track, body::-webkit-scrollbar-track, *::-webkit-scrollbar-track { background: var(--scroll-track); border-left: 1px solid color-mix(in srgb, var(--line) 24%, transparent); }
+html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 3px solid var(--scroll-track); border-radius: 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 55%, transparent), 2px 2px 0 var(--line); }
+html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, *::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+
+.brand-lockup { min-width: 0; flex-shrink: 0; align-items: center; }
+.brand-crest { width: 54px; height: 54px; flex: 0 0 54px; object-fit: contain; object-position: center; display: block; filter: drop-shadow(2px 2px 0 var(--line)); }
+.brand-copy { min-width: 0; }
+.brand-copy b, .brand-copy small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.match-experience-page select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  color: var(--match-ink) !important;
+  background-color: var(--match-surface-2) !important;
+  background-image: linear-gradient(45deg, transparent 50%, var(--match-ink) 50%), linear-gradient(135deg, var(--match-ink) 50%, transparent 50%) !important;
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50% !important;
+  background-size: 6px 6px, 6px 6px !important;
+  background-repeat: no-repeat !important;
+  border: 2px solid color-mix(in srgb, var(--match-line) 48%, transparent) !important;
+  box-shadow: 4px 5px 0 color-mix(in srgb, var(--match-line) 70%, transparent) !important;
+  color-scheme: light dark;
+}
+.match-experience-page select:focus { outline: 3px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; }
+.match-experience-page select option { color: var(--match-ink); background: var(--match-surface-2); }
+
+.modal-shell { min-height: 0; }
+.modal-heading { flex: 0 0 auto; min-height: 0; transition: padding 180ms ease, box-shadow 180ms ease; }
+.modal-shell.is-scrolled .modal-heading { padding-block: 8px 7px; }
+.modal-shell.is-scrolled .modal-heading .comic-title { font-size: clamp(24px, 4vw, 42px); margin-top: 2px; }
+.modal-scroll-content, .bowler-choice-grid, .scorecard-modal > .scorecard-list, .commentary-modal-scroll, .detailed-stats-modal > .analysis-scroll {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+}
+.modal-scroll-content { padding: 20px 22px; }
+.modal-scroll-content .analysis-tabs, .modal-scroll-content .analytics-grid-full, .modal-scroll-content .headline-metrics, .modal-scroll-content .future-rr-panel { flex-shrink: 0; }
+.commentary-modal-scroll { padding: 0; }
+.detailed-stats-modal > .analysis-scroll { padding: 0 22px 20px; }
+.scorecard-modal > .scorecard-list { padding: 20px 22px !important; }
+
+/* Keep setup typography in bounds without changing the intended comic hierarchy. */
+.match-experience-page .setup-panel .comic-title,
+.match-experience-page .setup-derived .comic-title { font-size: clamp(42px, 6vw, 66px); line-height: .88; max-width: 100%; overflow-wrap: anywhere; }
+
+.redo-button { background: var(--accent) !important; color: var(--ink) !important; border-color: var(--line) !important; box-shadow: 4px 4px 0 var(--line) !important; }
+.redo-button:hover { transform: translateY(-1px) scale(1.02); }
+
+@media (max-width: 700px) {
+  .brand-crest { width: 42px; height: 42px; flex-basis: 42px; }
+  .brand-lockup { gap: 8px; }
+  .modal-scroll-content { padding: 15px; }
+  .scorecard-modal > .scorecard-list { padding: 15px !important; }
+  .detailed-stats-modal > .analysis-scroll { padding: 0 15px 15px; }
+  .match-experience-page .setup-panel .comic-title { font-size: clamp(34px, 12vw, 52px); }
+}

@@ -1,4 +1,8 @@
-# ITB v22.6 — Setup theming + interaction sound repair
+# ITB v22.8 — Standalone reliability + UI polish
+
+## v22.8.0 — Standalone reliability + UI polish
+- Applied the eight requested v22.6 fixes: themed setup selectors, actual sound defaulting off, custom scrollbars, anchored/shrinking popup headers, 10-second REDO, Retired Out solo handling, full crest header branding, and 4s/10s homepage messaging.
+- Added generic descendant-scroll detection so every long popup can condense its heading consistently.
 
 ## v22.6.0
 - Fixed scorer/setup `<select>` controls rendering with browser-default dark/black chrome; they now use the active GLC theme with a custom in-theme arrow and readable selected text.

@@ -190,12 +190,12 @@ let clickAudioContext = null;
 let clickAudioResumePromise = null;
 
 function scheduleClickTune(ctx) {
-  if (!ctx || ctx.state !== "running") return;
+  if (!ctx) return;
   const now = ctx.currentTime + 0.006;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0.0001, now);
-  master.gain.exponentialRampToValueAtTime(0.16, now + 0.006);
-  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  master.gain.exponentialRampToValueAtTime(0.28, now + 0.006);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
   master.connect(ctx.destination);
 
   [
@@ -229,12 +229,14 @@ function playClickTune() {
     const ctx = clickAudioContext;
 
     if (ctx.state === "suspended") {
+      // Queue the tone while the context is suspended. Browsers can then play the
+      // already-scheduled nodes immediately after the user-gesture resume resolves.
+      scheduleClickTune(ctx);
       if (!clickAudioResumePromise) {
         clickAudioResumePromise = ctx.resume().catch(() => {}).finally(() => {
           clickAudioResumePromise = null;
         });
       }
-      void clickAudioResumePromise.then(() => scheduleClickTune(ctx));
       return;
     }
 
@@ -451,7 +453,7 @@ export function SiteFrame({ children, active = "" }) {
     <div className="network-status" role="status" aria-live="polite">No internet connection — reconnect to continue.</div>
     <div className="ambient ambient-a" /><div className="ambient ambient-b" /><div className="ambient ambient-c" /><div className="grain" />
     <header className="topbar">
-      <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><span className="brand-mark">GLC27</span><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
+      <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><img className="brand-crest" src={sitePath("/assets/glc27-favicon.png")} alt="" /><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
       <nav aria-label="Primary navigation">
         <a className={`nav-link nav-home ${active === "home" ? "active" : ""}`} href={sitePath("/")}>Home</a>
         <a className={`nav-link nav-settings ${active === "settings" ? "active" : ""}`} href={sitePath("/settings")}>Settings</a>
@@ -593,14 +595,13 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return undefined;
-    const scrollNodes = [
-      ...shell.querySelectorAll(".modal-scroll-content, .scorecard-list, .commentary-list, .analysis-scroll")
-    ];
-    const update = () => setScrolled(scrollNodes.some((node) => node.scrollTop > 4));
-    const nodes = [...new Set([shell, ...scrollNodes])];
-    nodes.forEach((node) => node.addEventListener("scroll", update, { passive: true }));
+    const update = (event) => {
+      const node = event?.target && event.target instanceof Element ? event.target : shell;
+      setScrolled(node.scrollTop > 4);
+    };
+    shell.addEventListener("scroll", update, { passive: true, capture: true });
     update();
-    return () => nodes.forEach((node) => node.removeEventListener("scroll", update));
+    return () => shell.removeEventListener("scroll", update, true);
   }, [children]);
   const requestClose = () => {
     if (closing) return;
@@ -663,12 +664,14 @@ export function DetailedStatsModal({ innings = [], onClose, origin = null, morph
   const runRatePoints = c?.overRuns?.map((runs, i) => ({ y: runs / 6, label: i + 1 })) || [];
   return <Modal origin={origin} onClose={onClose} className="detailed-stats-modal" ariaLabel="Detailed match statistics" morphName={morphName}>
     <div className="modal-heading"><div><span className="panel-kicker">ANALYTICAL RECORD</span><ComicTitle as="h2">Detailed stats</ComicTitle></div><button className="modal-close-button close-button" onClick={onClose}>Close ×</button></div>
+    <div className="modal-scroll-content analysis-scroll">
     {innings.length > 1 && <div className="analysis-tabs">{innings.map((x, i) => <button key={`analysis-tab-${i}`} className={analysisIndex === i ? "active" : ""} onClick={() => setAnalysisIndex(i)}>{x.battingTeam} INNINGS</button>)}</div>}
     {analytics && <>
       <div className="headline-metrics"><article><span>CRR</span><strong>{analytics.currentRR.toFixed(2)}</strong><small>current run rate</small></article><article><span>RRR</span><strong>{analytics.requiredRR == null ? "—" : analytics.requiredRR.toFixed(2)}</strong><small>{analytics.requiredRuns == null ? "not a chase" : `${analytics.requiredRuns} runs required`}</small></article><article><span>BALLS LEFT</span><strong>{analytics.ballsLeft}</strong><small>legal deliveries</small></article></div>
       <section className="analytics-grid-full"><MiniLine points={rrPoints} label="WORM / CUMULATIVE RUNS" accent="var(--blue)" /><Manhattan overRuns={c.overRuns || []} /><MiniLine points={runRatePoints} label="RUN RATE BY OVER" accent="var(--purple)" /></section>
       <section className="future-rr-panel"><div className="section-title"><div><span className="panel-kicker">SCENARIO ANALYSIS</span><h3>Analytical future RR</h3></div><span className="eyebrow">PROJECTION</span></div><div className="future-rr-grid">{analytics.futureRates.map((item) => <article key={`future-rr-${item.rate}`}><strong>{item.rate.toFixed(0)}</strong><span>RPO</span><b>{item.projectedRuns}</b><small>{item.chaseFinish == null ? (target == null ? "Projected final" : "Target not reached") : `Target in ~${item.chaseFinish} balls`}</small></article>)}</div></section>
     </>}
+    </div>
   </Modal>;
 }
 

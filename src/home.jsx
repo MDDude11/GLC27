@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { HandDrawnBall, HandDrawnBat, SiteFrame } from "./components.jsx";
 
 const LANDING_LINES = [
-  { text: "BIGGER", duration: 8000 },
-  { text: "BETTER", duration: 8000 },
-  { text: "GRANDER", duration: 8000 },
-  { text: "MORE EXCITING", duration: 8000 },
-  { text: "STEAMING FURY", duration: 15000, hot: true }
+  { text: "BIGGER", duration: 4000 },
+  { text: "BETTER", duration: 4000 },
+  { text: "GRANDER", duration: 4000 },
+  { text: "MORE EXCITING", duration: 4000 },
+  { text: "STEAMING FURY", duration: 10000, hot: true }
 ];
 
 export default function HomePage() {

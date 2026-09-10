@@ -23,7 +23,7 @@ export const sitePath = (path = "/") => {
 };
 export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
-export const SOUND_SETTINGS_VERSION_KEY = "glt_drafts_sound_settings_v3";
+export const SOUND_SETTINGS_VERSION_KEY = "glt_drafts_sound_settings_v4";
 
 export const DEFAULT_SETTINGS = {
   themeColor: "yellow",
@@ -42,13 +42,13 @@ export function loadSettings() {
 
     if (currentRaw) {
       const parsed = JSON.parse(currentRaw) || {};
-      const needsSoundDefaultMigration = localStorage.getItem(SOUND_SETTINGS_VERSION_KEY) !== "3";
+      const needsSoundDefaultMigration = localStorage.getItem(SOUND_SETTINGS_VERSION_KEY) !== "4";
       const merged = {
         ...DEFAULT_SETTINGS,
         ...parsed,
         ...(needsSoundDefaultMigration ? { soundEffects: false } : {})
       };
-      if (needsSoundDefaultMigration) localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "3");
+      if (needsSoundDefaultMigration) localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "4");
       return merged;
     }
 
@@ -70,7 +70,7 @@ export function loadSettings() {
         SETTINGS_KEY,
         JSON.stringify(migrated)
       );
-      localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "3");
+      localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "4");
 
       return migrated;
     }

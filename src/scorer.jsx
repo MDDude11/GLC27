@@ -150,10 +150,12 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const [manualAdjustTeam, setManualAdjustTeam] = useState(fixture.t1);
   const [manualAdjustAmount, setManualAdjustAmount] = useState(1);
   const [mandatoryUndoType, setMandatoryUndoType] = useState("");
+  const [redoSnapshot, setRedoSnapshot] = useState(null);
+  const [redoSeconds, setRedoSeconds] = useState(0);
   const preparingSuperRef = useRef(false);
 
   const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1, teams)) : [];
-  const currentStage = isSuper ? (rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex)) : {
+  const baseCurrentStage = isSuper ? (rootSuperOvers[superOverIndex - 1] || emptyStage(superOverIndex)) : {
     index: 0,
     stage: "main",
     status: state?.status || "upcoming",
@@ -163,6 +165,20 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     maxOvers: MAX_OVERS,
     maxWickets: MAX_WICKETS
   };
+
+  const currentStage = (() => {
+    const stageStatus = isSuper ? baseCurrentStage.status : state?.status;
+    const stageInn = Array.isArray(baseCurrentStage?.innings) ? baseCurrentStage.innings.at(-1) : null;
+    if (stageStatus !== "live" || !stageInn) return baseCurrentStage;
+    const stagePlayers = unique(teams[stageInn.battingTeam]?.players || []);
+    const stageDismissed = unique(deliveryList(stageInn.deliveries).filter((d) => (d.wicket || d.retired) && d.dismissed).map((d) => d.dismissed));
+    const stageRemaining = stagePlayers.filter((player) => !stageDismissed.includes(player));
+    if (stageRemaining.length !== 1) return baseCurrentStage;
+    const live = baseCurrentStage.live || emptyLive();
+    if (live.striker === stageRemaining[0] && !live.nonStriker) return baseCurrentStage;
+    if (live.nonStriker === stageRemaining[0] && live.striker) return { ...baseCurrentStage, live: { ...live, striker: stageRemaining[0], nonStriker: "" } };
+    return { ...baseCurrentStage, live: { ...live, striker: stageRemaining[0], nonStriker: "" } };
+  })();
 
   const stageInnings = Array.isArray(currentStage?.innings)
     ? currentStage.innings.map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries), maxOvers: isSuper ? SUPER_OVER_MAX_OVERS : MAX_OVERS, maxWickets: isSuper ? SUPER_OVER_MAX_WICKETS : MAX_WICKETS }))
@@ -230,6 +246,26 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     setReturnOpen(true);
   }, [canReturnHurt, returnOpen, isLive, retiredHurt]);
 
+  useEffect(() => {
+    if (!redoSnapshot) return undefined;
+    const endAt = Date.now() + 10000;
+    setRedoSeconds(10);
+    const timer = window.setInterval(() => {
+      const seconds = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      setRedoSeconds(seconds);
+      if (seconds <= 0) {
+        setRedoSnapshot(null);
+        setRedoSeconds(0);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [redoSnapshot]);
+
+  const clearRedo = () => {
+    setRedoSnapshot(null);
+    setRedoSeconds(0);
+  };
+
   const stageDataForWrite = (nextStage) => ({
     ...nextStage,
     innings: (nextStage.innings || []).map((inn) => ({ ...inn, deliveries: deliveryList(inn?.deliveries) }))
@@ -238,6 +274,8 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const pushResult = (result, message = "") => {
     if (!result) return null;
     setHistory((old) => [...old, result.previous].slice(-40));
+    setRedoSnapshot(null);
+    setRedoSeconds(0);
     setMandatoryUndoType("");
     setState(result.next);
     if (message) setToast(message);
@@ -453,6 +491,10 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
             nonStriker = outEnd === "nonStriker" ? "" : survivor;
             incomingSlot = outEnd;
           }
+        } else if (remaining.length <= 1) {
+          striker = remaining[0] || survivor;
+          nonStriker = "";
+          incomingSlot = "solo";
         }
       } else if (wicket) {
         const dismissedName = wicketData.dismissed;
@@ -695,9 +737,12 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const undo = () => {
     const previous = history.at(-1);
     if (!previous) return setToast("Nothing to undo");
+    const redoTarget = clone(state);
     const result = patchMatch(matchId, previous);
     const mandatory = inspectMandatoryState(result.next);
     setHistory((h) => h.slice(0, -1));
+    setRedoSnapshot(redoTarget);
+    setRedoSeconds(10);
     setWicketOpen(false);
     setBowlerOpen(false);
     setReturnOpen(false);
@@ -719,6 +764,22 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     setToast(mandatory ? "Undo paused at a required choice" : "Last action undone");
   };
 
+  const redo = () => {
+    if (!redoSnapshot) return;
+    const target = clone(redoSnapshot);
+    const result = patchMatch(matchId, target);
+    setHistory((h) => [...h, result.previous].slice(-40));
+    clearRedo();
+    setMandatoryUndoType("");
+    setWicketOpen(false);
+    setBowlerOpen(false);
+    setReturnOpen(false);
+    setNewBatsmanOpen(false);
+    setNewBatsmanChoices([]);
+    setState(result.next);
+    setToast("Action redone");
+  };
+
   const resumeUndoing = () => {
     setMandatoryUndoType("");
     setWicketOpen(false);
@@ -732,7 +793,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const reset = () => {
     if (!window.confirm(`Reset ${fixture.label}?`)) return;
     const result = patchMatch(matchId, () => ({ status: "upcoming", innings: [], live: emptyLive(), result: null, finalResult: null, toss: null, superOvers: [] }));
-    setState(result.next); setHistory([]); setMandatoryUndoType(""); setNewBatsmanOpen(false); setNewBatsmanChoices([]); setReturnOpen(false); setToast("Match reset");
+    setState(result.next); setHistory([]); clearRedo(); setMandatoryUndoType(""); setNewBatsmanOpen(false); setNewBatsmanChoices([]); setReturnOpen(false); setToast("Match reset");
   };
 
   const currentResult = isSuper ? stageResult(currentStage) : state.result;
@@ -747,7 +808,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const setupModel = { teams, fixture, isSuper, currentStage, state, superOverIndex, startMainFirstInnings, startSecondInnings, startSuperFirstInnings, startSuperSecondInnings };
 
   return <SiteFrame active="matches"><main className="section-wrap page-section scorer-page match-experience-page">
-    <div className="scorer-topline"><a className="back-button" href={matchPath(matchId)}>← Viewer</a><div className="scorer-title"><span>{fixture.label} / {isSuper ? `SUPER OVER ${superOverIndex}` : "OFFICIALS"}</span><ComicTitle>The <i>DRAFTS</i> / Scorer</ComicTitle></div><div className="scorer-actions"><button className="small-control blue-control undo-button" onClick={undo} disabled={!history.length}>Undo {history.length}</button><button className="small-control red-control undo-button reset-action" onClick={reset}>Reset</button></div></div>
+    <div className="scorer-topline"><a className="back-button" href={matchPath(matchId)}>← Viewer</a><div className="scorer-title"><span>{fixture.label} / {isSuper ? `SUPER OVER ${superOverIndex}` : "OFFICIALS"}</span><ComicTitle>The <i>DRAFTS</i> / Scorer</ComicTitle></div><div className="scorer-actions"><button className="small-control blue-control undo-button" onClick={undo} disabled={!history.length}>Undo {history.length}</button>{redoSnapshot && <button className="small-control accent-control redo-button" onClick={redo} aria-label={`Redo action, ${redoSeconds} seconds remaining`}>Redo {redoSeconds}s</button>}<button className="small-control red-control undo-button reset-action" onClick={reset}>Reset</button></div></div>
 
     <div className="scoreboard-hero comic-panel dark-panel"><div className="scoreboard-team"><span className="compact-bat-icon" aria-hidden="true">▱</span><TeamBadge code={currentInn?.battingTeam || (isSuper ? currentStage.battingFirst : fixture.t1)} large teams={teams} /><small>Batting</small></div><div className="score-main"><span className="score-state state-live">LIVE</span><strong>{score.runs}<em>/<WicketCount wickets={score.wickets} deliveries={currentInn?.deliveries || []} retiredHurt={retiredHurt} /></em></strong><span>{score.overs}.{score.balls} / {maxOvers} over{maxOvers === 1 ? "" : "s"} {target ? `· target ${target}` : ""}</span></div><div className="scoreboard-team"><TeamBadge code={currentInn?.bowlingTeam || (isSuper ? currentStage.bowlingFirst : fixture.t2)} large teams={teams} /><small>Bowling</small></div></div>
 
@@ -780,7 +841,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     {bowlerOpen && <BowlerModal bowlingPlayers={activeBowlingPlayers} currentInn={currentInn} previousBowler={currentStage.live.previousBowler} onSelect={selectBowler} onClose={() => setBowlerOpen(false)} />}
     {returnOpen && <RetiredHurtReturnModal players={retiredHurt} value={returnPlayer} setValue={setReturnPlayer} onBringBack={bringBackHurt} onEnd={endInningsFromHurt} onClose={() => setReturnOpen(false)} allowResumeUndo={mandatoryUndoType === "return"} onResumeUndo={resumeUndoing} />}
     {manualAdjustOpen && <ManualAdjustmentModal teams={fixture} team={manualAdjustTeam} amount={manualAdjustAmount} onTeamChange={setManualAdjustTeam} onAmountChange={setManualAdjustAmount} onClose={() => setManualAdjustOpen(false)} onSubmit={applyManualAdjustment} />}
-    {commentaryOpen && <Modal onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive"><div className="panel-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><Commentary deliveries={currentInn?.deliveries || []} /></Modal>}
+    {commentaryOpen && <Modal onClose={() => setCommentaryOpen(false)} className="commentary-modal dark-panel" ariaLabel="Commentary archive"><div className="panel-heading modal-heading"><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary archive</ComicTitle></div><button className="expand-button close-button" onClick={() => setCommentaryOpen(false)}>Close ×</button></div><div className="modal-scroll-content commentary-modal-scroll"><Commentary deliveries={currentInn?.deliveries || []} /></div></Modal>}
     {scorecardOpen && <ScorecardModal innings={state.innings || []} superOvers={rootSuperOvers} origin={scorecardOrigin} onClose={() => setScorecardOpen(false)} manualAdjustments={state.manualAdjustments || { main: {}, superOvers: [] }} />}
     {toast && <div className="toast">{toast}</div>}
   </main></SiteFrame>;

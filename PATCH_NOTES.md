@@ -1,3 +1,16 @@
+# ITB v22.8 — Standalone state, themed controls, popup polish and crest update
+
+## v22.8.0
+- Applied the eight v22.6 fixes as the v22.8 release: standalone batting state repair, themed setup controls, popup header anchoring/condensation, timed REDO, Retired Out no-incoming handling, full crest branding and homepage carousel timing.
+- Added custom theme-aware scrollbars across the site and scrollable modal/panel surfaces.
+- Reworked all modal scroll detection to listen to the actual scrolling descendant so popup headers condense reliably across normal and compact mode.
+- Added a 10-second REDO window after Undo; a new action invalidates the pending redo.
+- Hardened sole-remaining-batter state so scoring does not demand a nonexistent non-striker after wicket/retirement transitions.
+- Retired Out now enters the solo-batter path when no eligible replacement remains instead of forcing an incoming-batter popup.
+- Replaced the small GLC27 header mark with the supplied full Gala Luxuria Cup 2027 crest.
+- Changed homepage rotation to 4 seconds for normal lines and 10 seconds for **STEAMING FURY**.
+- Kept Sound effects explicitly OFF by default and advanced the settings migration for this release.
+
 # GLC27 ITB Patch Notes
 
 ## v22.6.0 — Setup theming + interaction sound repair
