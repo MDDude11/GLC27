@@ -49,7 +49,7 @@ export default function SettingsPage() {
           <div className="theme-color-picker">
             <div className="theme-color-heading">
               <span>Comic colour</span>
-              <b>{({ yellow: "Lemon", peach: "Peach", mint: "Mint", sky: "Sky", lavender: "Lavender", rose: "Rose" }[settings.themeColor]) || "Lemon"}</b>
+              <b>{({ yellow: "Lemon", peach: "Peach", mint: "Mint", sky: "Sky", lavender: "Lavender", rose: "Rose", cobalt: "Cobalt", scarlet: "Scarlet", teal: "Teal" }[settings.themeColor]) || "Lemon"}</b>
             </div>
             <div className="theme-color-options" role="group" aria-label="Choose comic colour">
               {[
@@ -58,7 +58,10 @@ export default function SettingsPage() {
                 ["mint", "Mint", "#b8e8c8"],
                 ["sky", "Sky", "#b8dcff"],
                 ["lavender", "Lavender", "#d7c2ff"],
-                ["rose", "Rose", "#ffbfd0"]
+                ["rose", "Rose", "#ffbfd0"],
+                ["cobalt", "Cobalt", "#4f7cff"],
+                ["scarlet", "Scarlet", "#ff4d5f"],
+                ["teal", "Teal", "#00c2a8"]
               ].map(([key, name, color]) => (
                 <button
                   key={key}
@@ -76,10 +79,13 @@ export default function SettingsPage() {
 
         <article className="comic-panel paper-panel settings-card">
           <span className="panel-kicker">TEXT SIZE</span>
-          <ComicTitle as="h2">Large text</ComicTitle>
-          <p>Increase body and stat text size across the site for easier reading.</p>
-          <Toggle label={settings.largeText ? "Large text on" : "Large text off"} checked={settings.largeText} onChange={(v) => updateSetting("largeText", v)} />
-          <small className="settings-footnote">Applies everywhere, including the scorer desk.</small>
+          <ComicTitle as="h2">Text size</ComicTitle>
+          <p>Scale site text smoothly for easier reading. There are no preset size steps.</p>
+          <label className="text-size-control">
+            <span className="text-size-range-label"><b>Smaller</b><b>{Math.round((Number(settings.textSize) || 1) * 100)}%</b><b>Larger</b></span>
+            <input className="theme-range" type="range" min="0.8" max="1.3" step="any" value={Number(settings.textSize) || 1} onChange={(e) => updateSetting("textSize", Number(e.target.value))} aria-label="Text size" />
+          </label>
+          <small className="settings-footnote">Adjusts continuously across the site.</small>
         </article>
 
         <article className="comic-panel paper-panel settings-card">

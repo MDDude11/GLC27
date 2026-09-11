@@ -39,6 +39,40 @@ const deliveryList = (value = []) => {
 };
 
 const unique = (items) => [...new Set((items || []).filter(Boolean))];
+const currentOverDeliveries = (deliveries = []) => {
+  const list = deliveryList(deliveries);
+  let legalCount = 0;
+  let current = [];
+  let lastComplete = [];
+  for (const delivery of list) {
+    current.push(delivery);
+    if (!delivery.wide && !delivery.noBall && !delivery.retired && !delivery.deadBall) {
+      legalCount += 1;
+      if (legalCount % 6 === 0) {
+        lastComplete = current;
+        current = [];
+      }
+    }
+  }
+  return current.length ? current : lastComplete;
+};
+
+const deliveryResultLabel = (delivery) => {
+  if (!delivery) return "";
+  if (delivery.retired) return "RET";
+  if (delivery.wicket) return "W";
+  if (delivery.wide) return delivery.runs ? `WD+${delivery.runs}` : "WD";
+  if (delivery.noBall) return delivery.runs ? `NB+${delivery.runs}` : "NB";
+  return String(Number(delivery.runs) || 0);
+};
+
+const deliveryResultClass = (delivery) => {
+  if (delivery?.retired) return "is-retired";
+  if (delivery?.wicket) return "is-wicket";
+  if (delivery?.wide || delivery?.noBall) return "is-extra";
+  return [4, 6].includes(Number(delivery?.runs) || 0) ? "is-boundary" : "";
+};
+
 const DISMISSAL_TYPES = ["Bowled", "Caught", "LBW", "Run Out", "Hit Wicket", "Stumped"];
 
 function validOpeningSetup(setup, battingTeam, bowlingTeam, teams) {
@@ -562,6 +596,11 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
     }
 
     if (incomingSlot === "solo") {
+      setNewBatsmanOpen(false);
+      setNewBatsmanChoices([]);
+      setNewBatsman("");
+      setNewBatsmanSlot("");
+      setNewBatsmanExcluded("");
       setToast(`${resultingStage.live?.striker || "Last batter"} is now the sole striker`);
       return;
     }
@@ -821,7 +860,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
 
     {isLive && currentInn && <>
       <section className="comic-panel dark-panel active-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} / LIVE CONTROL` : "LIVE CONTROL"}</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle><div className="compact-innings-identity"><span className="compact-bat-icon" aria-hidden="true">▱</span><TeamBadge code={currentInn.battingTeam} teams={teams} /><b>{currentInn.battingTeam}</b></div></div><span className="live-chip"><i /> LIVE</span></div>
-        <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="compact-over-strip" aria-label={`Over ${score.overs}.${score.balls}, ${score.legal} legal balls, ${currentStage.live.freeHit ? "free hit" : "legal ball"}`}><span><b>OVER</b> {score.overs}.{score.balls}</span><span><b>LEGAL</b> {score.legal}</span><span className={currentStage.live.freeHit ? "is-free-hit" : ""}><b>{currentStage.live.freeHit ? "FREE HIT" : "LEGAL BALL"}</b></span></div></div>
+        <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="ball-results-strip compact-over-strip" aria-label={`Ball results for over ${score.overs || 0}`}><span className="over-chip">OVER {score.overs || 0}</span>{currentOverDeliveries(currentInn?.deliveries || []).map((delivery, index) => <span key={`ball-result-${index}`} className={`ball-result-dot ${deliveryResultClass(delivery)}`}>{deliveryResultLabel(delivery)}</span>)}{!currentOverDeliveries(currentInn?.deliveries || []).length && <span className="ball-result-empty">No balls yet</span>}</div></div>
         {!currentStage.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
         <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!currentStage.live.bowler} onClick={openWicketModal}>WICKET</button></div>
         <div className="retirement-actions"><button className="retirement-action retirement-hurt-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Hurt", e)}>RETIRED HURT</button><button className="retirement-action retirement-out-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Out", e)}>RETIRED OUT</button></div>

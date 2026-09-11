@@ -1,4 +1,9 @@
-# ITB v22.8 — Standalone reliability + UI polish
+# ITB v22.8.5 — PWA chrome, offline navigation, visual system and scorer polish
+
+## v22.8.5
+- Applied the v22.8.5 eleven-item visual, PWA, offline and scorer fix set: themed PWA chrome and icons, offline navigation, pull-to-refresh theming metadata, exact landing artwork, three new themes, continuous text sizing, themed scrollbars, setup UI refinement, manual-popup cleanup, ball-result strips and sole-batter Retired Out cleanup.
+- Release notes are also available in About → Release notes.
+
 
 ## v22.8.0 — Standalone reliability + UI polish
 - Applied the eight requested v22.6 fixes: themed setup selectors, actual sound defaulting off, custom scrollbars, anchored/shrinking popup headers, 10-second REDO, Retired Out solo handling, full crest header branding, and 4s/10s homepage messaging.

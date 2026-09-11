@@ -1,3 +1,18 @@
+# ITB v22.8.5 — PWA chrome, offline navigation, visual system and scorer polish
+
+## v22.8.5
+- Matched browser/PWA theme metadata to the active accent where supported and made installed-app icons use the supplied Gala Luxuria Cup 2027 crest.
+- Kept local navigation available offline while retaining the existing queued-write path for network-dependent match actions.
+- Added theme-aware pull-to-refresh metadata where browser chrome supports it.
+- Replaced the homepage bat-and-ball graphic with the exact supplied comic artwork and green COSCO tennis ball.
+- Added Cobalt, Scarlet and Teal as fresh accent themes.
+- Replaced Large text with a continuous `step="any"` Text Size slider.
+- Applied custom comic scrollbars to the main page and popup scroll surfaces.
+- Refined setup cards to the approved sharp rectangular treatment and kept light-mode selects light and readable.
+- Removed the stray bottom band from the manual score adjustment popup.
+- Replaced the OVER/LEGAL/LEGAL BALL box with a themed current-over delivery result strip.
+- Cleaned up Retired Out sole-batter state so no stale incoming-batter popup remains when no replacement is available.
+
 # ITB v22.8 — Standalone state, themed controls, popup polish and crest update
 
 ## v22.8.0

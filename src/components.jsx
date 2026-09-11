@@ -227,20 +227,14 @@ function playClickTune() {
     if (!AudioContextClass) return;
     clickAudioContext ||= new AudioContextClass();
     const ctx = clickAudioContext;
-
+    const scheduleWhenReady = () => {
+      if (ctx.state === "running") scheduleClickTune(ctx);
+    };
     if (ctx.state === "suspended") {
-      // Queue the tone while the context is suspended. Browsers can then play the
-      // already-scheduled nodes immediately after the user-gesture resume resolves.
-      scheduleClickTune(ctx);
-      if (!clickAudioResumePromise) {
-        clickAudioResumePromise = ctx.resume().catch(() => {}).finally(() => {
-          clickAudioResumePromise = null;
-        });
-      }
+      void ctx.resume().then(scheduleWhenReady).catch(() => {});
       return;
     }
-
-    scheduleClickTune(ctx);
+    scheduleWhenReady();
   } catch {}
 }
 
@@ -408,15 +402,30 @@ export function SiteFrame({ children, active = "" }) {
         console.warn("PWA service worker registration failed.", error);
       });
     }
+    const syncBrowserThemeColor = () => {
+      const settings = loadSettings();
+      applySettingsToDocument(settings);
+      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.name = "theme-color";
+        document.head.appendChild(meta);
+      }
+      if (accent) meta.content = accent;
+    };
     const saved = localStorage.getItem(THEME_KEY);
     document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
-    applySettingsToDocument(loadSettings());
-    const onSettings = (e) => applySettingsToDocument(e.detail || loadSettings());
+    syncBrowserThemeColor();
+    const onSettings = () => syncBrowserThemeColor();
     window.addEventListener("glt-settings-updated", onSettings);
     window.addEventListener("storage", onSettings);
+    const browserThemeObserver = new MutationObserver(syncBrowserThemeColor);
+    browserThemeObserver.observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
     return () => {
       window.removeEventListener("glt-settings-updated", onSettings);
       window.removeEventListener("storage", onSettings);
+      browserThemeObserver.disconnect();
     };
   }, []);
   usePressFX();
@@ -450,7 +459,7 @@ export function SiteFrame({ children, active = "" }) {
   }, []);
   return <div className="site-shell">
     <HalftoneField />
-    <div className="network-status" role="status" aria-live="polite">No internet connection — reconnect to continue.</div>
+    <div className="network-status" role="status" aria-live="polite">OFFLINE — LOCAL PAGES AVAILABLE; CHANGES WILL SYNC WHEN RECONNECTED.</div>
     <div className="ambient ambient-a" /><div className="ambient ambient-b" /><div className="ambient ambient-c" /><div className="grain" />
     <header className="topbar">
       <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><img className="brand-crest" src={sitePath("/assets/glc27-favicon.png")} alt="" /><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>

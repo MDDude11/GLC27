@@ -1,6 +1,6 @@
 import { sitePath } from "./data.js";
 import { useEffect, useState } from "react";
-import { HandDrawnBall, HandDrawnBat, SiteFrame } from "./components.jsx";
+import { SiteFrame } from "./components.jsx";
 
 const LANDING_LINES = [
   { text: "BIGGER", duration: 4000 },
@@ -30,11 +30,7 @@ export default function HomePage() {
           <p className={`landing-subtitle landing-carousel${line.hot ? " landing-carousel-hot" : ""}`} key={line.text}>{line.text}</p>
         </div>
         <div className="landing-art" aria-hidden="true">
-          <div className="landing-paper" />
-          <div className="landing-rays" />
-          <HandDrawnBat className="landing-bat" />
-          <HandDrawnBall className="landing-ball" />
-          <span className="landing-sticker">GLC27</span>
+          <img className="landing-artwork" src={sitePath("/assets/landing-bat-ball.png")} alt="" />
         </div>
         <a className="comic-button enter-website landing-enter" href={sitePath("/programme")}>Enter website <span>↗</span></a>
       </section>

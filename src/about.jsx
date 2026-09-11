@@ -3,6 +3,22 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.8.5",
+    items: [
+      "Matched PWA/browser theme metadata to the active accent where supported and replaced installed-app icons with the supplied Gala Luxuria Cup 2027 crest.",
+      "Kept local navigation usable while offline instead of globally disabling buttons; network-dependent match writes continue through the existing queue.",
+      "Added theme-aware pull-to-refresh metadata where browser chrome honors page theme colours.",
+      "Replaced the landing bat-and-ball graphic with the exact supplied comic artwork and green COSCO tennis ball.",
+      "Added three distinct new accent themes: Cobalt, Scarlet and Teal.",
+      "Replaced Large text with a continuous Text Size slider using step=any and persisted site-wide text scaling.",
+      "Standardized comic-themed scrollbars on the main page and popup scroll surfaces.",
+      "Refined scorer setup cards into the approved sharp rectangular UI and kept light-mode selection controls light and readable.",
+      "Removed the stray bottom band from the manual score editor popup.",
+      "Replaced the old over/legal summary with a themed current-over ball-result strip showing delivery outcomes.",
+      "Hardened sole-batter Retired Out cleanup so no stale incoming-batter choice remains when no replacement exists."
+    ]
+  },
+  {
     version: "ITB v22.8",
     items: [
       "Fixed standalone batting state so a sole remaining batter cannot be paired with a stale or nonexistent non-striker after wickets or retirements.",
