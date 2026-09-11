@@ -3,6 +3,14 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.9",
+    items: [
+      "Hotfixed the approved landing bat-and-ball artwork so it renders as a bounded decorative graphic instead of expanding to its intrinsic image height and breaking the homepage layout.",
+      "Kept the artwork responsive across desktop, tablet and mobile breakpoints while preserving its proportions and exact supplied asset.",
+      "Bumped the PWA shell/cache version and Firebase offline queue key so v22.9 assets replace the cached v22.8.5 shell cleanly."
+    ]
+  },
+  {
     version: "ITB v22.8.5",
     items: [
       "Matched PWA/browser theme metadata to the active accent where supported and replaced installed-app icons with the supplied Gala Luxuria Cup 2027 crest.",

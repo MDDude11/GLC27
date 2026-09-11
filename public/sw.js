@@ -1,4 +1,4 @@
-const CACHE = "glc27-v22.8.5-shell-v1";
+const CACHE = "glc27-v22.9-shell-v1";
 const BASE = new URL("./", self.registration.scope).pathname;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const LOCAL_PAGES = [

@@ -28,8 +28,8 @@ import {
   isInternalMatchId
 } from "./admin.js";
 
-const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v22_8_5";
-const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v22_8", "glt_drafts_firebase_write_queue_v22_5", "glt_drafts_firebase_write_queue_v22", "glt_drafts_firebase_write_queue_v21", "glt_drafts_firebase_write_queue_v20"];
+const WRITE_QUEUE_KEY = "glt_drafts_firebase_write_queue_v22_9";
+const PREVIOUS_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v22_8_5", "glt_drafts_firebase_write_queue_v22_8", "glt_drafts_firebase_write_queue_v22_5", "glt_drafts_firebase_write_queue_v22", "glt_drafts_firebase_write_queue_v21", "glt_drafts_firebase_write_queue_v20"];
 const LEGACY_WRITE_QUEUE_KEYS = ["glt_drafts_firebase_write_queue_v19", "glt_drafts_firebase_write_queue_v18", "glt_drafts_firebase_write_queue_v17"];
 const flushLocks = new Set();
 const matchWriteChains = new Map();

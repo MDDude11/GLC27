@@ -1,3 +1,11 @@
+# ITB v22.9 — Landing artwork hotfix
+
+## v22.9.0
+- Fixed the supplied bat-and-ball artwork taking the full intrinsic 950×1655 image height and expanding the landing-page grid.
+- The artwork now behaves as a bounded decorative graphic positioned inside the hero art region, so it no longer pushes content down or breaks the page layout.
+- Preserved the exact supplied artwork asset and its proportions across desktop, tablet and mobile layouts.
+- Bumped the PWA shell/cache identifier and offline write-queue key for clean v22.9 delivery.
+
 # ITB v22.8.5 — PWA chrome, offline navigation, visual system and scorer polish
 
 ## v22.8.5
