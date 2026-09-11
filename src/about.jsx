@@ -3,6 +3,14 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v22.9.1",
+    items: [
+      "Recreated the approved homepage bat-and-ball composition as inline SVG/CSS code instead of an image asset.",
+      "Kept the graphic responsive and out of normal document flow so its intrinsic dimensions cannot break the landing layout.",
+      "Removed the landing artwork image dependency and bumped the PWA shell/cache version for v22.9.1."
+    ]
+  },
+  {
     version: "ITB v22.9",
     items: [
       "Hotfixed the approved landing bat-and-ball artwork so it renders as a bounded decorative graphic instead of expanding to its intrinsic image height and breaking the homepage layout.",

@@ -1,4 +1,10 @@
-# ITB v22.9 — Landing artwork hotfix
+# ITB v22.9.1 — Code-drawn landing artwork
+
+## v22.9.1
+- Removed the supplied landing artwork image from the homepage entirely.
+- Recreated the approved bat-and-ball composition as inline SVG/CSS inside `home.jsx`, including the bat, dark grip, blue/gold detail, dotted background, burst rays, GLC27 badge and neon green COSCO tennis ball.
+- The new artwork is vector-scaled and remains decorative/out of document flow, so it cannot expand the homepage from image intrinsic dimensions.
+- Bumped the PWA shell/cache identifier for v22.9.1.
 
 ## v22.9.0
 - Fixed the supplied bat-and-ball artwork taking the full intrinsic 950×1655 image height and expanding the landing-page grid.

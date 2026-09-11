@@ -1,4 +1,8 @@
-# ITB v22.9 — Landing artwork hotfix
+# ITB v22.9.1 — Code-drawn landing artwork
+
+## v22.9.1
+- Recreated the approved landing bat-and-ball visual as inline SVG/CSS in the React codebase rather than shipping it as a page image.
+- Preserved the diagonal bat, dark ribbed grip, blue/gold accent, neon green COSCO tennis ball, halftone dots, rays and GLC27 badge while keeping the graphic bounded and responsive.
 
 ## v22.9.0
 - Fixed the landing bat-and-ball artwork expanding according to its intrinsic image height and breaking the homepage layout.
