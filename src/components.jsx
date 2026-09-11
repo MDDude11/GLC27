@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath } from "./data.js";
+import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath, isStandalonePWA } from "./data.js";
 import { watchFirebaseConnection } from "./firebase.js";
 import { flushPendingWrites } from "./store.js";
 import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
@@ -406,13 +406,14 @@ export function SiteFrame({ children, active = "" }) {
       const settings = loadSettings();
       applySettingsToDocument(settings);
       const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+      const fallback = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#211d17";
       let meta = document.querySelector('meta[name="theme-color"]');
       if (!meta) {
         meta = document.createElement("meta");
         meta.name = "theme-color";
         document.head.appendChild(meta);
       }
-      if (accent) meta.content = accent;
+      meta.content = settings.disableThemedChrome ? fallback : (accent || fallback);
     };
     const saved = localStorage.getItem(THEME_KEY);
     document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
@@ -427,6 +428,30 @@ export function SiteFrame({ children, active = "" }) {
       window.removeEventListener("storage", onSettings);
       browserThemeObserver.disconnect();
     };
+  }, []);
+  useEffect(() => {
+    const settings = loadSettings();
+    if (isStandalonePWA() && settings.autoOpenLastMatch && location.pathname.endsWith("/")) {
+      const last = localStorage.getItem("glt_last_match_id");
+      if (last) window.location.replace(sitePath(`/match?match=${encodeURIComponent(last)}`));
+    }
+  }, []);
+  useEffect(() => {
+    if (!loadSettings().confirmLeaveScorer || !location.pathname.includes("scorer")) return undefined;
+    const handler = (event) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+  useEffect(() => {
+    let wakeLock = null;
+    const request = async () => {
+      if (!loadSettings().keepAwake || !isStandalonePWA() || !navigator.wakeLock?.request) return;
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
+    };
+    void request();
+    const onVisibility = () => { if (document.visibilityState === "visible") void request(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { document.removeEventListener("visibilitychange", onVisibility); void wakeLock?.release?.(); };
   }, []);
   usePressFX();
   useComicNavigation();
@@ -465,6 +490,7 @@ export function SiteFrame({ children, active = "" }) {
       <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><img className="brand-crest" src={sitePath("/assets/glc27-favicon.png")} alt="" /><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
       <nav aria-label="Primary navigation">
         <a className={`nav-link nav-home ${active === "home" ? "active" : ""}`} href={sitePath("/")}>Home</a>
+        <a className={`nav-link nav-app ${active === "app" ? "active" : ""}`} href={sitePath("/app")}>App</a>
         <a className={`nav-link nav-settings ${active === "settings" ? "active" : ""}`} href={sitePath("/settings")}>Settings</a>
         <a className={`nav-link nav-about ${active === "about" ? "active" : ""}`} href={sitePath("/about")}>About</a>
       </nav>

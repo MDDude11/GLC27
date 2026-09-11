@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MATCHES, MAX_OVERS, MAX_WICKETS, SUPER_OVER_MAX_OVERS, SUPER_OVER_MAX_WICKETS, scorerPath, TEAMS, sitePath } from "./data.js";
+import { MATCHES, MAX_OVERS, MAX_WICKETS, SUPER_OVER_MAX_OVERS, SUPER_OVER_MAX_WICKETS, scorerPath, TEAMS, sitePath, loadSettings, isStandalonePWA, isAndroid } from "./data.js";
 import { computeInnings, activeBatters, currentBowler, repairLiveForTeams } from "./engine.js";
 import { getMatch, resolveMatchFixture } from "./store.js";
 import { subscribeFirebaseMatch } from "./firebase.js";
@@ -33,6 +33,8 @@ export default function ViewerPage({ matchId }) {
   const [scorecardOrigin, setScorecardOrigin] = useState(null);
   const [commentaryOpen, setCommentaryOpen] = useState(false);
   const [commentaryOrigin, setCommentaryOrigin] = useState(null);
+  const canPinLive = isStandalonePWA() && isAndroid() && loadSettings().pinLiveScores;
+  const [pinLive, setPinLive] = useState(() => canPinLive && localStorage.getItem(`glt_pinned_match_${matchId}`) === "1");
 
   useEffect(() => {
     let active = true;
@@ -85,11 +87,35 @@ export default function ViewerPage({ matchId }) {
   const canBeginSuper = state.result?.winner === "tie" && !superOvers.length || latestStageResult?.winner === "tie";
   const nextSuper = superOvers.length + 1;
 
+  useEffect(() => {
+    if (!pinLive || !canPinLive || !state) return;
+    const send = async () => {
+      try {
+        const registration = await navigator.serviceWorker?.ready;
+        registration?.active?.postMessage({ type: "LIVE_SCORE", matchId, title: `GLC27 — ${fixture?.label || matchId}`, body: score ? `${team1} ${score.runs}/${score.wickets} (${score.overs}.${score.balls}) • ${team2}` : "Match not started", icon: sitePath("/assets/glc27-favicon.png") });
+      } catch {}
+    };
+    void send();
+  }, [pinLive, canPinLive, matchId, fixture, score?.runs, score?.wickets, score?.overs, score?.balls, team1, team2]);
+
+  const togglePinLive = async () => {
+    if (!canPinLive) return;
+    try {
+      const permission = (typeof Notification !== "undefined" && Notification.permission === "granted") ? "granted" : (typeof Notification !== "undefined" ? await Notification.requestPermission() : "denied");
+      if (permission !== "granted") return;
+      const next = !pinLive;
+      setPinLive(next);
+      localStorage.setItem(`glt_pinned_match_${matchId}`, next ? "1" : "0");
+      const registration = await navigator.serviceWorker?.ready;
+      registration?.active?.postMessage(next ? { type: "LIVE_SCORE", matchId, title: `GLC27 — ${fixture?.label || matchId}`, body: score ? `${team1} ${score.runs}/${score.wickets} (${score.overs}.${score.balls}) • ${team2}` : "Match not started", icon: sitePath("/assets/glc27-favicon.png") } : { type: "LIVE_SCORE_CLEAR", matchId });
+    } catch {}
+  };
+
   if (loading) return <SiteFrame active="matches"><main className="section-wrap page-section"><section className="future-note comic-panel paper-panel"><span className="panel-kicker">INTERNAL MATCH</span><ComicTitle as="h2">Loading match…</ComicTitle><p>Fetching the match record from Firebase.</p></section></main></SiteFrame>;
   if (!fixture) return <NotFound />;
 
   return <SiteFrame active="matches"><main className="section-wrap page-section viewer-page match-experience-page">
-    <div className="page-heading"><div><p className="eyebrow">PUBLIC MATCH VIEWER / {fixture.label}</p><ComicTitle>{headline}</ComicTitle></div><span className="format-stamp">{fixture.date} / {fixture.time}</span></div>
+    <div className="page-heading"><div><p className="eyebrow">PUBLIC MATCH VIEWER / {fixture.label}</p><ComicTitle>{headline}</ComicTitle></div><div className="viewer-heading-actions"><span className="format-stamp">{fixture.date} / {fixture.time}</span>{canPinLive && <button type="button" className={`pin-live-button ${pinLive ? "is-pinned" : ""}`} onClick={togglePinLive} aria-pressed={pinLive} title={pinLive ? "Stop live score notification" : "Pin live score"}>⌖ {pinLive ? "PINNED" : "PIN LIVE"}</button>}</div></div>
     <section className="match-view-hero comic-panel dark-panel"><div className="viewer-team"><TeamBadge code={team1} large teams={viewerTeams} /><b>{viewerTeams?.[team1]?.name || team1}</b><span>TEAM</span></div><div className="viewer-score"><span className={`score-state state-${state.status}`}>{statusText}</span><strong>{score ? <>{score.runs}/<WicketCount wickets={score.wickets} deliveries={current?.deliveries || []} retiredHurt={state.live?.retiredHurt || []} /></> : "—"}</strong><span>{score ? `${score.overs}.${score.balls} / ${MAX_OVERS} overs` : "3V3 / 6 OV / 3 WKTS"}</span></div><div className="viewer-team"><TeamBadge code={team2} large teams={viewerTeams} /><b>{viewerTeams?.[team2]?.name || team2}</b><span>TEAM</span></div></section>
 
     {score ? <>

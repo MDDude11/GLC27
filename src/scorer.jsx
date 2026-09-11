@@ -186,6 +186,7 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
   const [mandatoryUndoType, setMandatoryUndoType] = useState("");
   const [redoSnapshot, setRedoSnapshot] = useState(null);
   const [redoSeconds, setRedoSeconds] = useState(0);
+  const [expandedExtra, setExpandedExtra] = useState("");
   const preparingSuperRef = useRef(false);
 
   const rootSuperOvers = Array.isArray(state?.superOvers) ? state.superOvers.map((stage, index) => normaliseStage(stage, index + 1, teams)) : [];
@@ -862,7 +863,20 @@ function ScorerDesk({ matchId, fixture, superOverIndex }) {
       <section className="comic-panel dark-panel active-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">{isSuper ? `SUPER OVER ${superOverIndex} / LIVE CONTROL` : "LIVE CONTROL"}</span><ComicTitle as="h2">{currentInn.battingTeam} batting</ComicTitle><div className="compact-innings-identity"><span className="compact-bat-icon" aria-hidden="true">▱</span><TeamBadge code={currentInn.battingTeam} teams={teams} /><b>{currentInn.battingTeam}</b></div></div><span className="live-chip"><i /> LIVE</span></div>
         <div className="player-strip compact-player-strip"><div className="player-box active-player compact-player-card"><span>STRIKER</span><b>{currentStage.live.striker || "Incoming batter"}</b>{soloBatter && <em>SOLE BATTER — ALWAYS ON STRIKE</em>}</div><div className="player-box compact-player-card"><span>NON-STRIKER</span><b>{currentStage.live.nonStriker || (soloBatter ? "—" : "Incoming batter")}</b></div><div className="player-box bowler-box compact-player-card"><span>BOWLER</span><b>{currentStage.live.bowler || "New over"}</b></div><div className="ball-results-strip compact-over-strip" aria-label={`Ball results for over ${score.overs || 0}`}><span className="over-chip">OVER {score.overs || 0}</span>{currentOverDeliveries(currentInn?.deliveries || []).map((delivery, index) => <span key={`ball-result-${index}`} className={`ball-result-dot ${deliveryResultClass(delivery)}`}>{deliveryResultLabel(delivery)}</span>)}{!currentOverDeliveries(currentInn?.deliveries || []).length && <span className="ball-result-empty">No balls yet</span>}</div></div>
         {!currentStage.live.bowler && <div className="new-over-control"><span>OVER COMPLETE / BOWLER CHANGE</span><button className="comic-button primary" onClick={(e) => { setBowlerOrigin(originFromEvent(e)); setBowlerOpen(true); }}>Select new bowler <span>→</span></button></div>}
-        <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}<button className="run-key wide-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { wide: true })}>WIDE</button><button className="run-key nb-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(0, { noBall: true })}>NO BALL</button><button className="run-key wicket-key" disabled={!currentStage.live.bowler} onClick={openWicketModal}>WICKET</button></div>
+        <div className="run-pad">{[0,1,2,3,4,5,6].map((r) => <button key={`run-${r}`} className="run-key run-family" disabled={!currentStage.live.bowler} onClick={() => addDelivery(r)}>{r}</button>)}</div>
+        <div className={`special-run-row ${expandedExtra ? `is-${expandedExtra}` : ""}`}>
+          {expandedExtra === "wide" ? <div className="extra-morph-group">
+            <button className="extra-cancel" aria-label="Close wide options" onClick={() => setExpandedExtra("")}>×</button>
+            {[0,1,2,3,4].map((r) => <button key={`wide-${r}`} className="extra-option wide-family" disabled={!currentStage.live.bowler} onClick={() => { addDelivery(r, { wide: true }); setExpandedExtra(""); }}>{r === 0 ? "WIDE" : `WIDE+${r}`}</button>)}
+          </div> : expandedExtra === "noBall" ? <div className="extra-morph-group">
+            <button className="extra-cancel" aria-label="Close no-ball options" onClick={() => setExpandedExtra("")}>×</button>
+            {[0,1,2,3,4,5,6].map((r) => <button key={`nb-${r}`} className="extra-option nb-family" disabled={!currentStage.live.bowler} onClick={() => { addDelivery(r, { noBall: true }); setExpandedExtra(""); }}>{r === 0 ? "NO BALL" : `NB+${r}`}</button>)}
+          </div> : <>
+            <button className="run-key wide-family" disabled={!currentStage.live.bowler} onClick={() => setExpandedExtra("wide")}>WIDE</button>
+            <button className="run-key nb-family" disabled={!currentStage.live.bowler} onClick={() => setExpandedExtra("noBall")}>NO BALL</button>
+            <button className="run-key wicket-key" disabled={!currentStage.live.bowler} onClick={openWicketModal}>WICKET</button>
+          </>}
+        </div>
         <div className="retirement-actions"><button className="retirement-action retirement-hurt-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Hurt", e)}>RETIRED HURT</button><button className="retirement-action retirement-out-button" disabled={!currentStage.live.bowler} onClick={(e) => openRetirement("Retired Out", e)}>RETIRED OUT</button></div>
         <div className="scoring-tools"><span>Free hit: <b>{currentStage.live.freeHit ? "ON" : "OFF"}</b></span><span>{score.legal} legal balls</span></div>
       </section>

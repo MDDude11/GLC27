@@ -1,4 +1,4 @@
-const CACHE = "glc27-v22.9.1-shell-v1";
+const CACHE = "glc27-v23-shell-v1";
 const BASE = new URL("./", self.registration.scope).pathname;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const LOCAL_PAGES = [
@@ -16,6 +16,8 @@ const LOCAL_PAGES = [
   "settings.html",
   "about",
   "about.html",
+  "app",
+  "app.html",
   "manifest.webmanifest",
   "assets/pwa-192.png",
   "assets/pwa-512.png",
@@ -81,7 +83,7 @@ self.addEventListener("install", (event) => {
         const body = await fallback.text();
         const headers = new Headers(fallback.headers);
         headers.set("Content-Type", "text/html; charset=utf-8");
-        for (const route of ["programme", "matches", "match", "scorer", "settings", "about"]) {
+        for (const route of ["programme", "matches", "match", "scorer", "settings", "about", "app"]) {
           await cache.put(absolute(route), new Response(body, { status: 200, headers }));
         }
       }
@@ -159,4 +161,29 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") void self.skipWaiting();
+  if (event.data?.type === "LIVE_SCORE") {
+    const d = event.data;
+    event.waitUntil(self.registration.showNotification(d.title || "GLC27 live score", {
+      body: d.body || "Live score update",
+      icon: d.icon || absolute("assets/glc27-favicon.png"),
+      badge: d.icon || absolute("assets/glc27-favicon.png"),
+      tag: `glc-live-${d.matchId || "score"}`,
+      renotify: true,
+      requireInteraction: true,
+      data: { matchId: d.matchId || "" }
+    }));
+  }
+  if (event.data?.type === "LIVE_SCORE_CLEAR") {
+    event.waitUntil(self.registration.getNotifications({ tag: `glc-live-${event.data.matchId || "score"}` }).then((list) => list.forEach((n) => n.close())));
+  }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const matchId = event.notification.data?.matchId;
+  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const target = matchId ? absolute(`match?match=${encodeURIComponent(matchId)}`) : self.registration.scope;
+    const existing = list.find((client) => "focus" in client);
+    return existing ? existing.focus().then(() => existing.navigate?.(target)) : clients.openWindow(target);
+  }));
 });

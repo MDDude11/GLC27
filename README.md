@@ -1,3 +1,14 @@
+# ITB v23.0.0 — App shell, release history and scorer UI refresh
+
+## v23.0.0
+- Removed the homepage bat-and-ball section for now.
+- Standardized all popups as centered fixed-size frames with internal scrolling, anchored shrinking headers and in-frame actions.
+- Restored v1–v13 to the About → Release notes history and added five-entry progressive reveal with SHOW PREVIOUS.
+- Added the App navbar page (app version v1.1.0) with performance, display, notification, device and live-score controls.
+- Added Android PWA live-score pinning and service-worker notification updates.
+- Tightened ball-result spacing/mobile width and replaced WIDE/NO BALL controls with one-row morphing option groups.
+- Improved PWA theme-color metadata and light-mode select readability.
+
 # ITB v22.9.1 — Code-drawn landing artwork
 
 ## v22.9.1

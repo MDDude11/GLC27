@@ -3,6 +3,17 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v23",
+    items: [
+      "Removed the homepage bat-and-ball section for now and retained the coded artwork for future reuse.",
+      "Standardized all popups on a centered fixed-size frame with internal scrolling, anchored shrinking headers and in-frame actions.",
+      "Restored v1–v13 in the release history and changed the panel to reveal the latest five entries first with SHOW PREVIOUS paging.",
+      "Added the App navbar page with app version v1.1.0, performance/display/device controls and Android live-score pinning.",
+      "Tightened the ball-result strip for uniform spacing and mobile width and replaced WIDE/NO BALL with one-row morphing option groups without wrapping.",
+      "Improved PWA theme-colour metadata and light-mode select readability."
+    ]
+  },
+  {
     version: "ITB v22.9.1",
     items: [
       "Recreated the approved homepage bat-and-ball composition as inline SVG/CSS code instead of an image asset.",
@@ -242,6 +253,19 @@ const RELEASE_NOTES = [
       "Updated Vite configuration to use import.meta.dirname."
     ]
   },
+  { version: "ITB v13", items: ["Hardened GitHub Pages deployment output and production stylesheet handling for the tournament site."] },
+  { version: "ITB v12", items: ["Refined interaction-state handling, explicit motion preferences and safer tap-only comic feedback."] },
+  { version: "ITB v11", items: ["Added the internal admin match workflow and improved dark-mode readability for administrative controls."] },
+  { version: "ITB v10", items: ["Stabilized modal presentation, popup controls, reduced-motion behavior and dark-mode UI legibility."] },
+  { version: "ITB v9", items: ["Expanded theme coverage and polished the tournament navigation and match presentation system."] },
+  { version: "ITB v8", items: ["Added the comic impact interaction system, broader theme coverage and page/navigation motion polish."] },
+  { version: "ITB v7", items: ["Established the shared scorer/viewer component system and the first stable mobile-focused match controls."] },
+  { version: "ITB v6", items: ["Introduced the unified tournament layout for programme, matches, viewer and scorer pages."] },
+  { version: "ITB v5", items: ["Built out the live match scoring interface with ball-by-ball controls, scorecards and commentary."] },
+  { version: "ITB v4", items: ["Added the early match archive and fixture-driven tournament navigation."] },
+  { version: "ITB v3", items: ["Established the Gala Luxuria Cup visual identity, typography and comic-inspired page structure."] },
+  { version: "ITB v2", items: ["Expanded the initial prototype into a multi-page tournament experience with team and match presentation."] },
+  { version: "ITB v1", items: ["Initial Gala Luxuria Cup tournament web prototype and The DRAFTS concept shell."] },
   {
     version: "ITB v14",
     items: [
@@ -254,6 +278,7 @@ const RELEASE_NOTES = [
 
 export default function AboutPage() {
   const [notesOpen, setNotesOpen] = useState(false);
+  const [visibleNotes, setVisibleNotes] = useState(5);
 
   return <SiteFrame active="about">
     <main className="section-wrap page-section utility-page">
@@ -293,7 +318,7 @@ export default function AboutPage() {
           </div>
           <div className="release-notes-scroll">
             <div className="release-notes-list">
-              {RELEASE_NOTES.map((release) => (
+              {RELEASE_NOTES.slice(0, visibleNotes).map((release) => (
                 <article key={release.version} className="release-note-entry">
                   <div className="release-note-version">{release.version}</div>
                   <ul>
@@ -301,6 +326,7 @@ export default function AboutPage() {
                   </ul>
                 </article>
               ))}
+              {visibleNotes < RELEASE_NOTES.length && <button type="button" className="release-notes-previous" onClick={() => setVisibleNotes((count) => Math.min(count + 5, RELEASE_NOTES.length))}>SHOW PREVIOUS</button>}
             </div>
           </div>
         </Modal>

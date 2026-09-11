@@ -1,3 +1,15 @@
+# ITB v23 — App shell, release-history, scorer layout and PWA controls
+
+## v23.0.0
+- Removed the bat-and-ball section from the homepage while keeping the coded artwork available in the project for future reuse.
+- Standardized all modal dialogs on a centered fixed viewport frame with internal scrolling and anchored headers/actions.
+- Restored the full ITB release-history timeline through v1 and changed Release Notes to reveal the latest five entries first, with SHOW PREVIOUS paging back five at a time.
+- Added the App section to the navbar with app version v1.1.0 and device/PWA controls for themed browser chrome, fast mode, fullscreen, notifications, wake lock, reduced background effects, startup behavior and scorer safety.
+- Added Android PWA live-score pin controls on Match Viewer screens and service-worker live-score notifications.
+- Fixed the current-over ball strip to use uniform spacing and a larger mobile viewing area.
+- Reworked WIDE and NO BALL into one-row morphing option groups with equal-size cells and no wrapping.
+- Improved light-mode selection controls and PWA theme-color metadata.
+
 # ITB v22.9.1 — Code-drawn landing artwork
 
 ## v22.9.1

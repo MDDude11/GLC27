@@ -17,6 +17,22 @@ export const THEME_KEY = "glt_drafts_theme";
 
 export const SITE_BASE = (import.meta.env?.BASE_URL || "/").replace(/\/$/, "");
 
+
+export const isStandalonePWA = () => {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+};
+
+export const isIOS = () => {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+};
+
+export const isAndroid = () => {
+  if (typeof navigator === "undefined") return false;
+  return /Android/i.test(navigator.userAgent);
+};
+
 export const sitePath = (path = "/") => {
   const clean = String(path).startsWith("/") ? String(path) : `/${path}`;
   return `${SITE_BASE}${clean}` || "/";
@@ -25,6 +41,7 @@ export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
 export const SOUND_SETTINGS_VERSION_KEY = "glt_drafts_sound_settings_v4";
 export const TEXT_SIZE_SETTINGS_VERSION_KEY = "glt_drafts_text_size_settings_v1";
+export const APP_SETTINGS_VERSION_KEY = "glt_drafts_app_settings_v1";
 
 export const DEFAULT_SETTINGS = {
   themeColor: "yellow",
@@ -33,7 +50,16 @@ export const DEFAULT_SETTINGS = {
   clickVibration: true,
   compactMode: false,
   largeText: false,
-  textSize: 1
+  textSize: 1,
+  disableThemedChrome: false,
+  makeAppFaster: false,
+  fullScreen: false,
+  notifications: false,
+  keepAwake: false,
+  reduceBackground: false,
+  autoOpenLastMatch: false,
+  confirmLeaveScorer: false,
+  pinLiveScores: false
 };
 
 export function loadSettings() {
@@ -46,14 +72,17 @@ export function loadSettings() {
       const parsed = JSON.parse(currentRaw) || {};
       const needsSoundDefaultMigration = localStorage.getItem(SOUND_SETTINGS_VERSION_KEY) !== "4";
       const needsTextSizeMigration = localStorage.getItem(TEXT_SIZE_SETTINGS_VERSION_KEY) !== "1";
+      const needsAppSettingsMigration = localStorage.getItem(APP_SETTINGS_VERSION_KEY) !== "1";
       const merged = {
         ...DEFAULT_SETTINGS,
         ...parsed,
         ...(needsSoundDefaultMigration ? { soundEffects: false } : {}),
-        ...(needsTextSizeMigration ? { textSize: 1 } : {})
+        ...(needsTextSizeMigration ? { textSize: 1 } : {}),
+        ...(needsAppSettingsMigration ? { disableThemedChrome: false, makeAppFaster: false, fullScreen: false, notifications: false, keepAwake: false, reduceBackground: false, autoOpenLastMatch: false, confirmLeaveScorer: false, pinLiveScores: false } : {})
       };
       if (needsSoundDefaultMigration) localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "4");
       if (needsTextSizeMigration) localStorage.setItem(TEXT_SIZE_SETTINGS_VERSION_KEY, "1");
+      if (needsAppSettingsMigration) localStorage.setItem(APP_SETTINGS_VERSION_KEY, "1");
       return merged;
     }
 
@@ -69,7 +98,8 @@ export function loadSettings() {
         ...parsed,
         reduceMotion: false,
         soundEffects: false,
-        textSize: 1
+        textSize: 1,
+        disableThemedChrome: false, makeAppFaster: false, fullScreen: false, notifications: false, keepAwake: false, reduceBackground: false, autoOpenLastMatch: false, confirmLeaveScorer: false, pinLiveScores: false
       };
 
       localStorage.setItem(
@@ -113,6 +143,10 @@ export function applySettingsToDocument(settings) {
 
   root.dataset.largeText =
     settings.largeText ? "1" : "0";
+  root.dataset.fastApp = settings.makeAppFaster ? "1" : "0";
+  root.dataset.reduceBackground = settings.reduceBackground ? "1" : "0";
+  root.dataset.disableThemedChrome = settings.disableThemedChrome ? "1" : "0";
+  root.dataset.appStandalone = isStandalonePWA() ? "1" : "0";
 
   const textSize = Math.min(1.3, Math.max(0.8, Number(settings.textSize) || 1));
   root.style.setProperty("--text-scale", String(textSize));

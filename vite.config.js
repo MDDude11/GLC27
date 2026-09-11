@@ -17,6 +17,7 @@ export default defineConfig({
         scorer: resolve(import.meta.dirname, "scorer.html"),
         settings: resolve(import.meta.dirname, "settings.html"),
         about: resolve(import.meta.dirname, "about.html"),
+        app: resolve(import.meta.dirname, "app.html"),
         "404": resolve(import.meta.dirname, "404.html")
       }
     }

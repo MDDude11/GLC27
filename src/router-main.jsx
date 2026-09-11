@@ -7,6 +7,7 @@ import ViewerPage from "./viewer.jsx";
 import ScorerPage from "./scorer.jsx";
 import SettingsPage from "./settings.jsx";
 import AboutPage from "./about.jsx";
+import AppPage from "./app.jsx";
 
 const root = createRoot(document.getElementById("root"));
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -40,6 +41,9 @@ switch (relativePath) {
     break;
   case "/about":
     element = <AboutPage />;
+    break;
+  case "/app":
+    element = <AppPage />;
     break;
   default:
     element = <HomePage />;

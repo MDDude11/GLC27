@@ -1,4 +1,4 @@
-GLC27 ITB v22.0.0 — Scorer controls + reliability + UI polish
+GLC27 ITB v23.0.0 — Scorer controls + reliability + UI polish
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
@@ -27,7 +27,7 @@ Do not run Git commands from the downloaded/source-folder path unless git rev-pa
 
 Verification focus:
   - production build completes and verify-build passes
-  - service-worker cache is glc27-v22-shell-v1
+  - service-worker cache is glc27-v23-shell-v1
   - scorer.html remains the stable scorer entry point
   - Standalone scoring works after two wickets or one wicket plus one retirement
   - EDIT MANUALLY adjusts either team by +1, +2, +5, -5, -2 or -1 without changing delivery statistics
