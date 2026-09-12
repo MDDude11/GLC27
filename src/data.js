@@ -41,7 +41,8 @@ export const SETTINGS_KEY = "glt_drafts_settings_v4";
 export const LEGACY_SETTINGS_KEYS = ["glt_drafts_settings_v3", "glt_drafts_settings_v2"];
 export const SOUND_SETTINGS_VERSION_KEY = "glt_drafts_sound_settings_v4";
 export const TEXT_SIZE_SETTINGS_VERSION_KEY = "glt_drafts_text_size_settings_v1";
-export const APP_SETTINGS_VERSION_KEY = "glt_drafts_app_settings_v1";
+export const APP_SETTINGS_VERSION_KEY = "glt_drafts_app_settings_v2";
+export const NOTIFICATION_SETTINGS_VERSION_KEY = "glt_drafts_notification_settings_v1";
 
 export const DEFAULT_SETTINGS = {
   themeColor: "yellow",
@@ -72,7 +73,7 @@ export function loadSettings() {
       const parsed = JSON.parse(currentRaw) || {};
       const needsSoundDefaultMigration = localStorage.getItem(SOUND_SETTINGS_VERSION_KEY) !== "4";
       const needsTextSizeMigration = localStorage.getItem(TEXT_SIZE_SETTINGS_VERSION_KEY) !== "1";
-      const needsAppSettingsMigration = localStorage.getItem(APP_SETTINGS_VERSION_KEY) !== "1";
+      const needsAppSettingsMigration = localStorage.getItem(APP_SETTINGS_VERSION_KEY) !== "2";
       const merged = {
         ...DEFAULT_SETTINGS,
         ...parsed,
@@ -82,7 +83,7 @@ export function loadSettings() {
       };
       if (needsSoundDefaultMigration) localStorage.setItem(SOUND_SETTINGS_VERSION_KEY, "4");
       if (needsTextSizeMigration) localStorage.setItem(TEXT_SIZE_SETTINGS_VERSION_KEY, "1");
-      if (needsAppSettingsMigration) localStorage.setItem(APP_SETTINGS_VERSION_KEY, "1");
+      if (needsAppSettingsMigration) localStorage.setItem(APP_SETTINGS_VERSION_KEY, "2");
       return merged;
     }
 

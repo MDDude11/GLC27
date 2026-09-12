@@ -3,6 +3,20 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v23.5",
+    items: [
+      "Restricted the App navbar page to installed PWA mode; ordinary Chrome, Edge, Safari and other browser sessions now show it as unavailable.",
+      "Fixed installed-app theme chrome handling, including runtime status-bar colour synchronisation and Android/browser metadata updates.",
+      "Added Android-only home-page app installation access, alongside clearer PWA-only device controls.",
+      "Added device notification handling for match starts and admin-authored broadcast messages, with Pin Live Scores now dependent on enabled notifications.",
+      "Added an admin Push Notifications tool for composing and publishing custom device messages to subscribed GLC27 PWA clients.",
+      "Removed the homepage bat-and-ball section while retaining the coded artwork for possible future reuse.",
+      "Improved the halftone pointer response so dots follow the cursor faster and replace their base dot cleanly while growing in place.",
+      "Improved WIDE / NO BALL desktop label sizing and cleaned up player-choice popup select controls and padding.",
+      "Themed wicket, retirement and incoming-batter selectors now use a clear paper surface, strong comic borders, compact spacing and a consistent custom arrow instead of blended native select chrome."
+    ]
+  },
+  {
     version: "ITB v23",
     items: [
       "Removed the homepage bat-and-ball section for now and retained the coded artwork for future reuse.",
@@ -266,14 +280,6 @@ const RELEASE_NOTES = [
   { version: "ITB v3", items: ["Established the Gala Luxuria Cup visual identity, typography and comic-inspired page structure."] },
   { version: "ITB v2", items: ["Expanded the initial prototype into a multi-page tournament experience with team and match presentation."] },
   { version: "ITB v1", items: ["Initial Gala Luxuria Cup tournament web prototype and The DRAFTS concept shell."] },
-  {
-    version: "ITB v14",
-    items: [
-      "Hardened custom-match lifecycle handling and management around the internal test-match workflow.",
-      "Improved custom-match creation, deletion and Firebase-backed state handling.",
-      "Polished internal-match archive presentation, card colours, contrast and spacing."
-    ]
-  }
 ];
 
 export default function AboutPage() {

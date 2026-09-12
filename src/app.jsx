@@ -16,7 +16,7 @@ export default function AppPage() {
   const ios = isIOS();
   const android = isAndroid();
   const [settings, setSettings] = useState(() => loadSettings());
-  const supportedNotification = standalone && typeof window !== "undefined" && "Notification" in window;
+  const supportedNotification = standalone && !ios && typeof window !== "undefined" && "Notification" in window;
 
   const update = (key, value) => {
     setSettings((current) => {
@@ -32,10 +32,20 @@ export default function AppPage() {
   };
 
   const toggleNotifications = async (value) => {
-    if (!value) return update("notifications", false);
+    if (!value) {
+      update("notifications", false);
+      update("pinLiveScores", false);
+      try {
+        const registration = await navigator.serviceWorker?.ready;
+        registration?.active?.postMessage({ type: "LIVE_SCORE_CLEAR_ALL" });
+      } catch {}
+      return;
+    }
     if (!supportedNotification) return;
     const permission = await Notification.requestPermission();
-    update("notifications", permission === "granted");
+    const granted = permission === "granted";
+    update("notifications", granted);
+    if (!granted) update("pinLiveScores", false);
   };
 
   const statusText = useMemo(() => standalone ? (android ? "Installed Android app" : ios ? "Installed iOS app" : "Installed app") : "Browser mode", [standalone, android, ios]);
@@ -53,7 +63,7 @@ export default function AppPage() {
         <article className="comic-panel paper-panel settings-card"><span className="panel-kicker">VISUALS</span><ComicTitle as="h2">Reduce background effects</ComicTitle><p>Keep the GLC look while removing heavier ambient layers.</p><Toggle label="Reduce background effects" checked={settings.reduceBackground} onChange={(v) => update("reduceBackground", v)} /></article>
         <article className="comic-panel paper-panel settings-card"><span className="panel-kicker">STARTUP</span><ComicTitle as="h2">Last match</ComicTitle><p>When launching the installed app, return directly to the last match viewed.</p><Toggle label="Auto-open last match" checked={settings.autoOpenLastMatch} onChange={(v) => update("autoOpenLastMatch", v)} /></article>
         <article className="comic-panel paper-panel settings-card"><span className="panel-kicker">SCORER SAFETY</span><ComicTitle as="h2">Leave confirmation</ComicTitle><p>Ask before closing or navigating away from an active scorer page.</p><Toggle label="Confirm before leaving scorer" checked={settings.confirmLeaveScorer} onChange={(v) => update("confirmLeaveScorer", v)} /></article>
-        <article className="comic-panel paper-panel settings-card"><span className="panel-kicker">LIVE SCORES</span><ComicTitle as="h2">Pin live scores</ComicTitle><p>Enable the Android PWA pin control on Match Viewer screens.</p><Toggle label="Pin live scores" checked={settings.pinLiveScores} onChange={(v) => update("pinLiveScores", v)} disabled={!standalone || !android} subtext="Available for Androids only" /></article>
+        <article className="comic-panel paper-panel settings-card"><span className="panel-kicker">LIVE SCORES</span><ComicTitle as="h2">Pin live scores</ComicTitle><p>Enable the Android PWA pin control on Match Viewer screens.</p><Toggle label="Pin live scores" checked={settings.pinLiveScores} onChange={(v) => update("pinLiveScores", v)} disabled={!standalone || !android || !settings.notifications} subtext={ios ? "Available for Androids only · Not supported on iOS." : !standalone ? "Available for Androids only · Install the app first." : !settings.notifications ? "Available for Androids only · Turn on notifications first." : "Available for Androids only"} /></article>
       </section>
     </main>
   </SiteFrame>;

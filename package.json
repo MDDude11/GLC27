@@ -1,7 +1,7 @@
 {
   "name": "glt-drafts-2027-itb23-firebase-pwa-stable",
   "private": true,
-  "version": "23.0.0",
+  "version": "23.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

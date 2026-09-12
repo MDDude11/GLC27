@@ -1,4 +1,4 @@
-const CACHE = "glc27-v23-shell-v1";
+const CACHE = "glc27-v23.5-shell-v2";
 const BASE = new URL("./", self.registration.scope).pathname;
 const NAVIGATION_TIMEOUT_MS = 3500;
 const LOCAL_PAGES = [
@@ -19,6 +19,15 @@ const LOCAL_PAGES = [
   "app",
   "app.html",
   "manifest.webmanifest",
+  "manifest-yellow.webmanifest",
+  "manifest-peach.webmanifest",
+  "manifest-mint.webmanifest",
+  "manifest-sky.webmanifest",
+  "manifest-lavender.webmanifest",
+  "manifest-rose.webmanifest",
+  "manifest-cobalt.webmanifest",
+  "manifest-scarlet.webmanifest",
+  "manifest-teal.webmanifest",
   "assets/pwa-192.png",
   "assets/pwa-512.png",
   "assets/glc27-favicon.png"
@@ -176,6 +185,25 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "LIVE_SCORE_CLEAR") {
     event.waitUntil(self.registration.getNotifications({ tag: `glc-live-${event.data.matchId || "score"}` }).then((list) => list.forEach((n) => n.close())));
   }
+  if (event.data?.type === "LIVE_SCORE_CLEAR_ALL") {
+    event.waitUntil(self.registration.getNotifications().then((list) => list.filter((n) => String(n.tag || "").startsWith("glc-live-")).forEach((n) => n.close())));
+  }
+});
+
+
+self.addEventListener("push", (event) => {
+  event.waitUntil((async () => {
+    let data = {};
+    try { data = event.data ? event.data.json() : {}; } catch { try { data = { body: event.data?.text() || "GLC27 update" }; } catch {} }
+    await self.registration.showNotification(data.title || "GLC27 notification", {
+      body: data.body || "GLC27 update",
+      icon: data.icon || absolute("assets/glc27-favicon.png"),
+      badge: data.badge || absolute("assets/glc27-favicon.png"),
+      tag: data.tag || "glc-push",
+      renotify: true,
+      data: { matchId: data.matchId || "" }
+    });
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {

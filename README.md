@@ -1,4 +1,14 @@
-# ITB v23.0.0 — App shell, release history and scorer UI refresh
+# ITB v23.5.0 — PWA chrome, notifications and scorer UI polish
+
+## v23.5.0
+
+- App navigation is available only from the installed PWA, with browser-mode gating.
+- Added dynamic themed browser/PWA chrome handling and per-theme manifests for install-time theme colour selection.
+- Fixed device-notification controls, Android live-score pin gating, match-start notifications, and admin Push Notifications UI.
+- Added Android-only install prompt on the homepage for users who have not installed the app.
+- Improved halftone pointer response and in-place dot growth.
+- Increased Wide/No-Ball option readability on desktop.
+- Improved wicket and incoming-batter player-choice popups: visible themed selects, cleaner spacing and less nested padding.
 
 ## v23.0.0
 - Removed the homepage bat-and-ball section for now.

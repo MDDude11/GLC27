@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { ComicTitle } from "./components.jsx";
+import { ComicTitle, Modal } from "./components.jsx";
 import { ADMIN_ROSTER, ADMIN_PASSWORD, createEmptyInternalMatch, createInternalMatchId } from "./admin.js";
 import { createInternalMatch, deleteInternalMatch, listInternalMatches } from "./store.js";
+import { writeFirebaseNotification } from "./firebase.js";
 
 
 const accents = ["#ff675d", "#76caff", "#efff3f", "#c39aff", "#ffb160", "#74d79a"];
@@ -16,6 +17,10 @@ export default function AdminPanel() {
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [status, setStatus] = useState("");
+  const [pushOpen, setPushOpen] = useState(false);
+  const [pushTitle, setPushTitle] = useState("");
+  const [pushBody, setPushBody] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
   const [form, setForm] = useState(() => ({
     label: "Internal Test Match",
     date: defaultDate,
@@ -96,6 +101,23 @@ export default function AdminPanel() {
     }
   };
 
+  const sendPush = async (event) => {
+    event.preventDefault();
+    if (pushBusy) return;
+    if (!pushTitle.trim() || !pushBody.trim()) return setStatus("Enter both a notification title and message.");
+    setPushBusy(true);
+    try {
+      await writeFirebaseNotification({ title: pushTitle.trim(), body: pushBody.trim(), kind: "admin" });
+      setPushTitle("");
+      setPushBody("");
+      setPushOpen(false);
+      setStatus("Notification published for subscribed GLC27 devices.");
+    } catch (error) {
+      console.error(error);
+      setStatus("Notification send failed. Check Firebase connectivity.");
+    } finally { setPushBusy(false); }
+  };
+
   if (!unlocked) return <section className="admin-gate comic-panel paper-panel">
     <span className="panel-kicker">RESTRICTED / INTERNAL TEST BUILD</span>
     <ComicTitle as="h2">Admin <i>mode.</i></ComicTitle>
@@ -122,6 +144,8 @@ export default function AdminPanel() {
       </form>
       {status && <div className="admin-status" role="status">{status}</div>}
       <div className="admin-match-list"><div className="admin-list-heading"><span className="panel-kicker">CREATED INTERNAL MATCHES</span><button type="button" className="small-control offline-safe" onClick={loadMatches}>Refresh ↻</button></div>{Object.values(matches).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((match) => <article className="admin-match-item" key={match.id}><div><b>{match.label}</b><span>{match.date} · {match.time}{match.venue ? ` · ${match.venue}` : ""}</span><small>{match.teams?.A?.name} · {match.teams?.A?.players?.join(" / ")} <br /> {match.teams?.B?.name} · {match.teams?.B?.players?.join(" / ")}</small></div><div className="admin-match-actions"><span className="admin-created-note">Created. Open it later from Home → Matches.</span><button type="button" className="comic-button delete-card-button" onClick={() => remove(match)} disabled={busy || !!deletingId}>{deletingId === match.id ? "Deleting…" : "Delete ×"}</button></div></article>)}{!Object.keys(matches).length && <div className="empty-state">No internal matches yet.</div>}</div>
+      <div className="admin-bottom-tools"><span className="admin-created-note">DEVICE MESSAGING</span><button type="button" className="small-control offline-safe" onClick={() => setPushOpen(true)}>Push Notifications</button></div>
+      {pushOpen && <Modal onClose={() => setPushOpen(false)} className="admin-push-modal paper-panel" ariaLabel="Push notifications"><div className="modal-heading"><div><span className="panel-kicker">ADMIN / DEVICE MESSAGING</span><ComicTitle as="h2">Push <i>notifications.</i></ComicTitle></div><button type="button" className="modal-close-button close-button" onClick={() => setPushOpen(false)}>Close ×</button></div><form className="admin-push-form" onSubmit={sendPush}><label>Notification title<input value={pushTitle} onChange={(e) => setPushTitle(e.target.value)} maxLength={120} placeholder="GLC27 update" /></label><label>Message<textarea value={pushBody} onChange={(e) => setPushBody(e.target.value)} maxLength={500} rows={5} placeholder="Your message to subscribed devices" /></label><small className="settings-footnote">Broadcasts to devices that have notifications enabled in the installed Android PWA.</small><div className="modal-actions"><button type="button" className="back-button viewer-family" onClick={() => setPushOpen(false)}>Cancel</button><button className="comic-button primary" type="submit" disabled={pushBusy}>{pushBusy ? "Sending…" : "Send notification ↗"}</button></div></form></Modal>}
     </div>
   </section>;
 }

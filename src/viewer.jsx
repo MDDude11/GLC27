@@ -33,8 +33,11 @@ export default function ViewerPage({ matchId }) {
   const [scorecardOrigin, setScorecardOrigin] = useState(null);
   const [commentaryOpen, setCommentaryOpen] = useState(false);
   const [commentaryOrigin, setCommentaryOrigin] = useState(null);
-  const canPinLive = isStandalonePWA() && isAndroid() && loadSettings().pinLiveScores;
+  const [appSettings, setAppSettings] = useState(() => loadSettings());
+  const canPinLive = isStandalonePWA() && isAndroid() && appSettings.notifications && appSettings.pinLiveScores;
   const [pinLive, setPinLive] = useState(() => canPinLive && localStorage.getItem(`glt_pinned_match_${matchId}`) === "1");
+  useEffect(() => { const onSettings = (event) => setAppSettings(event.detail || loadSettings()); window.addEventListener("glt-settings-updated", onSettings); return () => window.removeEventListener("glt-settings-updated", onSettings); }, []);
+  useEffect(() => { if (!canPinLive && pinLive) { setPinLive(false); localStorage.removeItem(`glt_pinned_match_${matchId}`); } }, [canPinLive, pinLive, matchId]);
 
   useEffect(() => {
     let active = true;

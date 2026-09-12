@@ -2615,3 +2615,80 @@ html[data-theme="light"] select option { color:var(--ink) !important; background
 html[data-theme="light"] .setup-derived { background:var(--paper-light) !important; }
 
 @media(max-width:700px){ .app-settings-grid { grid-template-columns:1fr; } .viewer-heading-actions { justify-content:flex-start; } .pin-live-button { margin-left:0; } }
+
+/* ─────────────────────────────────────────────────────────────
+   ITB v23.5 — app gating, install prompt, fast halftone interaction,
+   mobile delivery actions and player-choice popup legibility
+   ───────────────────────────────────────────────────────────── */
+.nav-disabled {
+  cursor:not-allowed !important;
+  opacity:.38;
+  pointer-events:none;
+  color:var(--text-muted) !important;
+}
+.landing-copy { text-align:center; margin-inline:auto; }
+.landing-copy .landing-kicker { margin-inline:auto; }
+.landing-subtitle { margin-inline:auto; }
+.landing-enter { left:50% !important; transform:translateX(-50%) !important; }
+.landing-enter:hover { transform:translateX(-50%) scale(1.015) translateY(-1px) !important; }
+.landing-enter:active { transform:translateX(-50%) scale(.992) translate(2px,2px) !important; }
+.landing-install { position:absolute; left:50%; bottom:0; transform:translateX(-50%); min-width:180px; padding:10px 16px; font-size:calc(11px * var(--text-scale)); background:var(--paper-light); color:var(--ink); }
+.landing-install:hover { transform:translateX(-50%) translateY(-1px); background:var(--blue); }
+.admin-bottom-tools { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; padding-top:14px; border-top:2px solid rgba(246,239,227,.16); }
+.admin-push-form { display:grid; gap:14px; padding:20px 22px 0; }
+.admin-push-form label { display:grid; gap:7px; font-family:"Barlow Condensed"; font-size:calc(11px * var(--text-scale)); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.admin-push-form input, .admin-push-form textarea { width:100%; min-width:0; resize:vertical; border:2px solid var(--line); background:var(--paper-light); color:var(--ink); padding:11px 12px; outline:none; }
+html:not([data-theme="light"]) .admin-push-form input,
+html:not([data-theme="light"]) .admin-push-form textarea { background:var(--surface-2); color:var(--text); border-color:var(--text-muted); color-scheme:dark; }
+
+/* Player-choice popups: make the native select unmistakable and remove nested/padded-looking surfaces. */
+.wicket-modal .modal-scroll-content,
+.retirement-modal > p,
+.retirement-modal > label,
+.new-batsman-modal > label,
+.new-batsman-modal > .incoming-player-grid,
+.new-batsman-modal > .incoming-slot,
+.retirement-return-modal > p,
+.retirement-return-modal > .retirement-player-choice,
+.retirement-return-modal > .incoming-slot {
+  margin-left:20px; margin-right:20px;
+}
+.wicket-modal .modal-scroll-content { padding:18px 0 20px; overflow:visible !important; }
+.new-batsman-modal > label, .retirement-modal > label { display:grid; gap:8px; margin-top:12px; font-family:"Barlow Condensed"; font-size:calc(11px * var(--text-scale)); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.new-batsman-modal select, .retirement-modal select, .wicket-modal select {
+  width:100%; height:48px; min-height:48px; padding:10px 42px 10px 12px !important;
+  appearance:none !important; -webkit-appearance:none !important;
+  border:3px solid var(--line) !important;
+  background-color:var(--paper-light) !important; color:var(--ink) !important;
+  box-shadow:4px 5px 0 var(--line) !important;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%) !important;
+  background-position:calc(100% - 19px) 50%,calc(100% - 13px) 50% !important;
+  background-size:6px 6px,6px 6px !important; background-repeat:no-repeat !important;
+  color-scheme:light !important;
+}
+html:not([data-theme="light"]) .new-batsman-modal select,
+html:not([data-theme="light"]) .retirement-modal select,
+html:not([data-theme="light"]) .wicket-modal select {
+  background-color:var(--paper-light) !important; color:var(--ink) !important; border-color:var(--line) !important; color-scheme:light !important;
+}
+.new-batsman-modal select option, .retirement-modal select option, .wicket-modal select option { background:var(--paper-light); color:var(--ink); }
+.new-batsman-modal .incoming-player-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.new-batsman-modal .player-pick { min-height:60px; padding:11px 12px; }
+.retirement-modal > p, .retirement-return-modal > p { margin-top:10px; }
+.retirement-modal > label { margin-top:4px; }
+.retirement-return-modal .retirement-player-choice { margin-top:14px; }
+
+@media(max-width:700px){
+  .landing-enter { bottom:58px !important; }
+  .landing-install { bottom:4px; min-width:170px; }
+  .admin-bottom-tools { align-items:flex-start; flex-direction:column; }
+  .admin-bottom-tools .small-control { width:100%; }
+  .new-batsman-modal .incoming-player-grid { grid-template-columns:1fr; }
+  .wicket-modal .modal-scroll-content, .new-batsman-modal > label, .retirement-modal > label { margin-left:15px; margin-right:15px; }
+  .retirement-modal > p, .retirement-return-modal > p, .new-batsman-modal > .incoming-player-grid, .new-batsman-modal > .incoming-slot, .retirement-return-modal > .retirement-player-choice, .retirement-return-modal > .incoming-slot { margin-left:15px; margin-right:15px; }
+}
+
+/* Make WIDE/NO BALL labels readable at desktop without changing the touch-safe layout. */
+@media(min-width:701px){
+  .extra-option { font-size:clamp(15px,1.35vw,21px) !important; letter-spacing:.045em; }
+}

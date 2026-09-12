@@ -1,4 +1,16 @@
-# ITB v23 — App shell, release-history, scorer layout and PWA controls
+# ITB v23.5 — PWA chrome, notifications and scorer UI polish
+
+## v23.5.0
+
+- App nav is now PWA-only; browser visits show a disabled App item.
+- Browser and installed-PWA theme colour metadata now follows the selected comic colour where the platform supports dynamic updates; added per-theme install manifests.
+- PWA icons are regenerated directly from the supplied Gala Luxuria Cup crest.
+- Navigation stays usable offline; only truly network-dependent work is restricted or queued.
+- Added Android PWA device-notification controls: notification permission gates live-score pinning, match-start notifications, and an admin Push Notifications composer.
+- Added Android-only homepage install prompt.
+- Accelerated halftone pointer following and improved in-place dot enlargement.
+- Improved desktop readability of WIDE / WIDE+N and NO BALL / NO BALL+N controls.
+- Refined wicket, retirement and incoming-batter player-choice popup selects for stronger theme contrast and cleaner spacing.
 
 ## v23.0.0
 - Removed the bat-and-ball section from the homepage while keeping the coded artwork available in the project for future reuse.

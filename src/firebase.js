@@ -134,6 +134,67 @@ async function loadFirebase() {
   return firebasePromise;
 }
 
+
+const NOTIFICATIONS_ROOT = "notifications";
+const FIREBASE_NOTIFICATION_POLL_MS = 4000;
+
+function pollFirebaseNotifications(onNotifications, interval = FIREBASE_NOTIFICATION_POLL_MS) {
+  let active = true;
+  let timer = 0;
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const value = await getFirebaseRest(NOTIFICATIONS_ROOT);
+      if (active) onNotifications(value || {});
+    } catch (error) {
+      if (active) console.warn("Firebase notification polling failed.", error);
+    } finally {
+      if (active) timer = window.setTimeout(poll, interval);
+    }
+  };
+  void poll();
+  return () => {
+    active = false;
+    if (timer) window.clearTimeout(timer);
+  };
+}
+
+export async function subscribeFirebaseNotifications(onNotifications, onError) {
+  try {
+    const { database, ref, onValue } = await loadFirebase();
+    let fallbackUnsubscribe = null;
+    const sdkUnsubscribe = onValue(
+      ref(database, NOTIFICATIONS_ROOT),
+      (snapshot) => onNotifications(snapshot.exists() ? (snapshot.val() || {}) : {}),
+      (error) => {
+        console.warn("Firebase notification subscription failed; switching to REST polling.", error);
+        onError?.(error);
+        fallbackUnsubscribe ||= pollFirebaseNotifications(onNotifications);
+      }
+    );
+    return () => {
+      sdkUnsubscribe?.();
+      fallbackUnsubscribe?.();
+    };
+  } catch (error) {
+    console.warn("Firebase notification subscription unavailable; using REST polling.", error);
+    onError?.(error);
+    return pollFirebaseNotifications(onNotifications);
+  }
+}
+
+export async function writeFirebaseNotification({ title, body, kind = "admin", createdAt = Date.now(), id = "" }) {
+  const notificationId = id || `${createdAt}-${Math.random().toString(36).slice(2, 8)}`;
+  const payload = {
+    id: notificationId,
+    title: String(title || "GLC27 notification").slice(0, 120),
+    body: String(body || "").slice(0, 500),
+    kind,
+    createdAt
+  };
+  return setFirebaseRest(`${NOTIFICATIONS_ROOT}/${encodeURIComponent(notificationId)}`, payload);
+}
+
 export async function watchFirebaseConnection(onChange) {
   try {
     const { database, ref, onValue } = await loadFirebase();

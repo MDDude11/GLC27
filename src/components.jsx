@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath, isStandalonePWA } from "./data.js";
-import { watchFirebaseConnection } from "./firebase.js";
+import { TEAMS, loadSettings, applySettingsToDocument, THEME_KEY, sitePath, isStandalonePWA, isAndroid } from "./data.js";
+import { watchFirebaseConnection, subscribeFirebaseMatches, subscribeFirebaseNotifications } from "./firebase.js";
 import { flushPendingWrites } from "./store.js";
 import { computeInnings, fallOfWickets, inningsAnalytics, teamStats } from "./engine.js";
 
@@ -88,7 +88,7 @@ export function HalftoneField() {
       if (!current.active || !fine.matches) return;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const radius = gap * 4.2;
+      const radius = gap * 4.8;
       const minX = Math.max(gap * .55, Math.floor((current.x - radius) / gap) * gap + gap * .55);
       const maxX = Math.min(width + gap, Math.ceil((current.x + radius) / gap) * gap + gap * .55);
       const minY = Math.max(gap * .55, Math.floor((current.y - radius) / gap) * gap + gap * .55);
@@ -100,6 +100,12 @@ export function HalftoneField() {
           const dist = Math.hypot(dx, dy);
           const influence = Math.max(0, 1 - dist / radius);
           if (influence <= 0) continue;
+          ctx.save();
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.beginPath();
+          ctx.arc(x, y, 8.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
           drawDot(ctx, x, y, current);
         }
       }
@@ -127,8 +133,8 @@ export function HalftoneField() {
     const tick = () => {
       const p = pointerRef.current;
       const t = targetRef.current;
-      p.x += (t.x - p.x) * .18;
-      p.y += (t.y - p.y) * .18;
+      p.x += (t.x - p.x) * .34;
+      p.y += (t.y - p.y) * .34;
       paint();
       if (p.active) rafRef.current = requestAnimationFrame(tick);
       else stop();
@@ -387,6 +393,78 @@ function useConnectivityStatus() {
   }, []);
 }
 
+
+function useDeviceNotifications() {
+  const [settings, setSettings] = useState(() => loadSettings());
+
+  useEffect(() => {
+    const onSettings = (event) => setSettings(event.detail || loadSettings());
+    const onStorage = () => setSettings(loadSettings());
+    window.addEventListener("glt-settings-updated", onSettings);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("glt-settings-updated", onSettings);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStandalonePWA() || !isAndroid() || !settings.notifications || typeof Notification === "undefined" || Notification.permission !== "granted") return undefined;
+    let active = true;
+    let unsubscribeMatches = () => {};
+    let unsubscribeNotifications = () => {};
+    const STARTED_KEY = "glt_notified_match_starts_v2";
+    const CUSTOM_KEY = "glt_seen_push_notifications_v1";
+    const readSet = (key) => {
+      try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); }
+    };
+    const saveSet = (key, set) => {
+      try { localStorage.setItem(key, JSON.stringify([...set].slice(-200))); } catch {}
+    };
+    const show = async (title, body, tag = "glc-notification") => {
+      try {
+        const registration = await navigator.serviceWorker?.ready;
+        if (!registration?.showNotification) return;
+        await registration.showNotification(title, {
+          body,
+          icon: sitePath("/assets/glc27-favicon.png"),
+          badge: sitePath("/assets/glc27-favicon.png"),
+          tag,
+          renotify: true,
+          data: { matchId: "" }
+        });
+      } catch {}
+    };
+
+    void subscribeFirebaseMatches((matches) => {
+      if (!active) return;
+      const seen = readSet(STARTED_KEY);
+      for (const [id, match] of Object.entries(matches || {})) {
+        const started = match?.status && match.status !== "upcoming" && (match?.status === "live" || match?.status === "innings2" || match?.status === "completed" || Array.isArray(match?.innings) && match.innings.length);
+        if (!started || seen.has(id)) continue;
+        seen.add(id);
+        void show("GLC27 — Match started", `${match?.label || id} • ${match?.t1 || "A"} vs ${match?.t2 || "B"}`, `glc-started-${id}`);
+      }
+      saveSet(STARTED_KEY, seen);
+    }).then((unsubscribe) => { if (active && typeof unsubscribe === "function") unsubscribeMatches = unsubscribe; });
+
+    void subscribeFirebaseNotifications((notifications) => {
+      if (!active) return;
+      const seen = readSet(CUSTOM_KEY);
+      const entries = Object.values(notifications || {}).filter(Boolean).sort((a,b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      for (const note of entries) {
+        const id = String(note.id || `${note.createdAt}:${note.title}`);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        void show(String(note.title || "GLC27 notification"), String(note.body || ""), `glc-push-${id}`);
+      }
+      saveSet(CUSTOM_KEY, seen);
+    }).then((unsubscribe) => { if (active && typeof unsubscribe === "function") unsubscribeNotifications = unsubscribe; });
+
+    return () => { active = false; unsubscribeMatches?.(); unsubscribeNotifications?.(); };
+  }, [settings.notifications]);
+}
+
 export function SiteFrame({ children, active = "" }) {
   useEffect(() => {
     if (import.meta.env.PROD && "serviceWorker" in navigator) {
@@ -413,14 +491,31 @@ export function SiteFrame({ children, active = "" }) {
         meta.name = "theme-color";
         document.head.appendChild(meta);
       }
-      meta.content = settings.disableThemedChrome ? fallback : (accent || fallback);
+      const chromeColor = settings.disableThemedChrome ? fallback : (accent || fallback);
+      meta.content = chromeColor;
+      meta.setAttribute("data-glt-theme-color", "1");
+      let navMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+      if (!navMeta) { navMeta = document.createElement("meta"); navMeta.name = "msapplication-navbutton-color"; document.head.appendChild(navMeta); }
+      navMeta.content = chromeColor;
+      let appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (!appleMeta) { appleMeta = document.createElement("meta"); appleMeta.name = "apple-mobile-web-app-status-bar-style"; document.head.appendChild(appleMeta); }
+      appleMeta.content = settings.disableThemedChrome ? "default" : "black-translucent";
     };
     const saved = localStorage.getItem(THEME_KEY);
     document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
     syncBrowserThemeColor();
-    const onSettings = () => syncBrowserThemeColor();
+    const syncManifest = () => {
+      try {
+        const settings = loadSettings();
+        const theme = ["yellow","peach","mint","sky","lavender","rose","cobalt","scarlet","teal"].includes(settings.themeColor) ? settings.themeColor : "yellow";
+        const manifest = document.querySelector('link[rel="manifest"]');
+        if (manifest) manifest.href = sitePath(`/manifest-${theme}.webmanifest`);
+      } catch {}
+    };
+    const onSettings = () => { syncBrowserThemeColor(); syncManifest(); };
     window.addEventListener("glt-settings-updated", onSettings);
     window.addEventListener("storage", onSettings);
+    syncManifest();
     const browserThemeObserver = new MutationObserver(syncBrowserThemeColor);
     browserThemeObserver.observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
     return () => {
@@ -454,6 +549,7 @@ export function SiteFrame({ children, active = "" }) {
     return () => { document.removeEventListener("visibilitychange", onVisibility); void wakeLock?.release?.(); };
   }, []);
   usePressFX();
+  useDeviceNotifications();
   useComicNavigation();
   useConnectivityStatus();
   useEffect(() => {
@@ -490,7 +586,7 @@ export function SiteFrame({ children, active = "" }) {
       <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><img className="brand-crest" src={sitePath("/assets/glc27-favicon.png")} alt="" /><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
       <nav aria-label="Primary navigation">
         <a className={`nav-link nav-home ${active === "home" ? "active" : ""}`} href={sitePath("/")}>Home</a>
-        <a className={`nav-link nav-app ${active === "app" ? "active" : ""}`} href={sitePath("/app")}>App</a>
+        {isStandalonePWA() ? <a className={`nav-link nav-app ${active === "app" ? "active" : ""}`} href={sitePath("/app")}>App</a> : <span className="nav-link nav-app nav-disabled" aria-disabled="true" title="Available in the installed GLC27 app">App</span>}
         <a className={`nav-link nav-settings ${active === "settings" ? "active" : ""}`} href={sitePath("/settings")}>Settings</a>
         <a className={`nav-link nav-about ${active === "about" ? "active" : ""}`} href={sitePath("/about")}>About</a>
       </nav>
