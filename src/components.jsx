@@ -582,6 +582,7 @@ export function SiteFrame({ children, active = "" }) {
     <HalftoneField />
     <div className="network-status" role="status" aria-live="polite">OFFLINE — LOCAL PAGES AVAILABLE; CHANGES WILL SYNC WHEN RECONNECTED.</div>
     <div className="ambient ambient-a" /><div className="ambient ambient-b" /><div className="ambient ambient-c" /><div className="grain" />
+    <div className="topbar-blur" aria-hidden="true" />
     <header className="topbar">
       <a className="brand-lockup" href={sitePath("/")} aria-label="Gala Luxuria Cup 2027 home"><img className="brand-crest" src={sitePath("/assets/glc27-favicon.png")} alt="" /><span className="brand-copy"><b>Gala Luxuria Cup</b><small>2027</small></span></a>
       <nav aria-label="Primary navigation">
@@ -711,8 +712,21 @@ export function PlayerStats({ state, teamCodes, teams = TEAMS, mode = "viewer" }
 export function Modal({ children, onClose, origin = null, className = "", ariaLabel = "Dialog", morphName = "" }) {
   const [closing, setClosing] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const closingRef = useRef(false);
   const closeTimerRef = useRef(null);
   const shellRef = useRef(null);
+  const requestClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (document.documentElement.dataset.reduceMotion === "1") { onClose?.(); return; }
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(() => onClose?.(), 110);
+  };
+  // Bound once: this only needs to attach the Escape listener and arm the
+  // unmount cleanup. Re-running it on every render (e.g. when requestClose
+  // triggers a state update) was clearing the pending close timeout before
+  // it could fire, so the backdrop/blur would stay mounted after an
+  // outside click or Escape until the page was refreshed.
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === "Escape") requestClose();
@@ -722,7 +736,7 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
       document.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(closeTimerRef.current);
     };
-  });
+  }, []);
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return undefined;
@@ -734,12 +748,6 @@ export function Modal({ children, onClose, origin = null, className = "", ariaLa
     update();
     return () => shell.removeEventListener("scroll", update, true);
   }, [children]);
-  const requestClose = () => {
-    if (closing) return;
-    if (document.documentElement.dataset.reduceMotion === "1") { onClose?.(); return; }
-    setClosing(true);
-    closeTimerRef.current = window.setTimeout(() => onClose?.(), 110);
-  };
   const style = origin ? { "--origin-x": `${origin.x}px`, "--origin-y": `${origin.y}px` } : undefined;
   const shellStyle = style;
   const modal = <div className={`modal-backdrop ${closing ? "is-closing" : ""}`} onClick={requestClose} style={style} role="presentation">

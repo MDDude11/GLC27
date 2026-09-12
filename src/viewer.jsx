@@ -9,6 +9,36 @@ const originFromEvent = (event) => {
   const r = event?.currentTarget?.getBoundingClientRect?.();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
 };
+const currentOverDeliveries = (deliveries = []) => {
+  let legalCount = 0;
+  let current = [];
+  let lastComplete = [];
+  for (const delivery of deliveries) {
+    current.push(delivery);
+    if (!delivery.wide && !delivery.noBall && !delivery.retired && !delivery.deadBall) {
+      legalCount += 1;
+      if (legalCount % 6 === 0) {
+        lastComplete = current;
+        current = [];
+      }
+    }
+  }
+  return current.length ? current : lastComplete;
+};
+const deliveryResultLabel = (delivery) => {
+  if (!delivery) return "";
+  if (delivery.retired) return "RET";
+  if (delivery.wicket) return "W";
+  if (delivery.wide) return delivery.runs ? `WD+${delivery.runs}` : "WD";
+  if (delivery.noBall) return delivery.runs ? `NB+${delivery.runs}` : "NB";
+  return String(Number(delivery.runs) || 0);
+};
+const deliveryResultClass = (delivery) => {
+  if (delivery?.retired) return "is-retired";
+  if (delivery?.wicket) return "is-wicket";
+  if (delivery?.wide || delivery?.noBall) return "is-extra";
+  return [4, 6].includes(Number(delivery?.runs) || 0) ? "is-boundary" : "";
+};
 const deliveryList = (value = []) => {
   if (Array.isArray(value)) return value.filter(Boolean);
   if (!value || typeof value !== "object") return [];
@@ -124,6 +154,7 @@ export default function ViewerPage({ matchId }) {
     {score ? <>
       <section className="viewer-stats-grid"><Stat label="RUN RATE" value={rr} note="current innings" /><Stat label="REQUIRED RUNS" value={requiredRuns == null ? "—" : requiredRuns} note={target ? `target ${target}` : "first innings"} /><Stat label="REQ. RUN RATE" value={reqRR} note={target ? `${ballsLeft} legal balls left` : "chase not started"} /><Stat label="STATUS" value={statusText} note={state.finalResult?.desc || state.result?.desc || `${score.overs}.${score.balls} / ${MAX_OVERS} overs`} /></section>
       <section className="viewer-live-grid"><article className="comic-panel paper-panel viewer-card"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">AT THE CREASE</span><ComicTitle as="h2">Live batters</ComicTitle></div></div><div className="viewer-players">{activeBatters(state).length ? activeBatters(state).map(([name, p], index) => <div className="viewer-player" key={`${name}-${index}`}><span className="role-tag">{name === state.live.striker ? "STRIKER" : "NON-STRIKER"}</span><b>{name}</b><strong>{p.runs}<small> ({p.balls})</small></strong><span>{p.fours} fours · {p.sixes} sixes</span></div>) : <div className="empty-state">No active batter figures.</div>}</div></article><article className="comic-panel paper-panel viewer-card"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">BOWLING</span><ComicTitle as="h2">Current spell</ComicTitle></div></div>{currentBowler(state) ? <div className="bowler-feature"><span className="role-tag">BOWLER</span><b>{currentBowler(state)[0]}</b><strong>{Math.floor(currentBowler(state)[1].balls / 6)}.{currentBowler(state)[1].balls % 6} <small>OV</small></strong><span>{currentBowler(state)[1].runs} runs · {currentBowler(state)[1].wickets} wickets</span></div> : <div className="empty-state">No bowler selected.</div>}</article></section>
+      <section className="comic-panel dark-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">THIS OVER</span><ComicTitle as="h2">Ball by ball</ComicTitle></div></div><div className="ball-results-strip" aria-label={`Ball results for over ${score.overs || 0}`}><span className="over-chip">OVER {score.overs || 0}</span>{currentOverDeliveries(current?.deliveries || []).map((delivery, index) => <span key={`viewer-ball-result-${index}`} className={`ball-result-dot ${deliveryResultClass(delivery)}`}>{deliveryResultLabel(delivery)}</span>)}{!currentOverDeliveries(current?.deliveries || []).length && <span className="ball-result-empty">No balls yet</span>}</div></section>
       <PlayerStats state={state} teamCodes={[team1, team2]} teams={viewerTeams} mode="viewer" />
       <section className="viewer-columns"><article className="comic-panel dark-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">BALL BY BALL</span><ComicTitle as="h2">Commentary</ComicTitle></div><button className="expand-button viewer-family" onClick={(e) => { setCommentaryOrigin(originFromEvent(e)); setCommentaryOpen(true); }}>Expand ↗</button></div><div className="compact-secondary-row"><span className="compact-secondary-row__title">COMMENTARY</span><button className="expand-button viewer-family" onClick={() => setCommentaryOpen(true)}>Expand ↗</button></div></article><article className="comic-panel paper-panel"><div className="panel-heading" data-anchor-heading><div><span className="panel-kicker">MATCH SCORECARD</span><ComicTitle as="h2">Scorecard</ComicTitle></div><button className="expand-button scorecard-family" onClick={(e) => { setScorecardOrigin(originFromEvent(e)); setScorecardOpen(true); }}>Open ↗</button></div><div className="compact-secondary-row"><span className="compact-secondary-row__title">SCORECARD</span><button className="expand-button scorecard-family" onClick={() => setScorecardOpen(true)}>Open ↗</button></div></article></section>
     </> : <section className="future-note comic-panel paper-panel"><span className="panel-kicker">WAITING FOR PLAY</span><ComicTitle as="h2">Match not started.</ComicTitle><p>The public viewer will populate automatically when play begins.</p><a className="comic-button primary" href={scorerPath(matchId)}>Open scorer <span>→</span></a></section>}

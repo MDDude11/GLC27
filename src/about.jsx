@@ -3,6 +3,19 @@ import { ComicTitle, SiteFrame, Modal } from "./components.jsx";
 
 const RELEASE_NOTES = [
   {
+    version: "ITB v23.7",
+    items: [
+      "Fixed the installed PWA's status-bar/theme colour always showing lemon regardless of the selected comic colour by loading the correctly themed manifest before the browser can resolve a default one, and by bumping the app shell cache so previously installed clients pick up the fix.",
+      "Fixed popups leaving a stuck blurred backdrop behind after clicking outside them, with no way to clear it except refreshing.",
+      "Removed the lemon default-colour flash when navigating between pages after changing the theme colour, by applying the selected accent synchronously before the page paints.",
+      "Added a live ball-by-ball strip for the current over to the public Match Viewer, matching the scorer's view.",
+      "Fixed bright white thick borders and an oversized padded look in the scorecard popup in dark mode.",
+      "Applied a blur layer above the header navbar so scrolling content no longer looks visually broken just underneath it.",
+      "Fixed the run-out player choice in the wicket popup being non-scrollable, which made some options unreachable.",
+      "Removed the translucent padded border/background sitting behind the button row at the bottom of popups so only the buttons show."
+    ]
+  },
+  {
     version: "ITB v23.5",
     items: [
       "Restricted the App navbar page to installed PWA mode; ordinary Chrome, Edge, Safari and other browser sessions now show it as unavailable.",

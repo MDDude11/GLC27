@@ -1,3 +1,16 @@
+# ITB v23.7 — PWA theming fixes, popup polish and viewer ball-by-ball
+
+## v23.7.0
+
+- Fixed the installed PWA's status-bar/theme colour always appearing lemon regardless of the selected comic colour. The themed manifest is now loaded before the browser can resolve a default one, and the app shell cache was bumped so already-installed clients get the corrected manifest.
+- Fixed popups leaving a stuck blurred backdrop after clicking outside them, previously fixable only by refreshing. The underlying bug was a Modal effect re-running on every render and cancelling its own close timer.
+- Removed the lemon default-colour flash when navigating between pages after changing the theme colour, by applying the saved accent colour synchronously before first paint instead of waiting for the app to mount.
+- Added a live current-over ball-by-ball strip to the public Match Viewer page, matching the equivalent strip already shown to the scorer.
+- Fixed bright white thick borders (and the resulting oversized/padded look) in the scorecard popup in dark mode.
+- Applied a blurred backdrop layer above the header navbar so page content no longer looks visually broken scrolling underneath it.
+- Fixed the run-out batter selection in the wicket popup being non-scrollable, which could make some options unreachable.
+- Removed the translucent padded border/background behind the button row at the bottom of popups, other than the manual-adjustment popup which already had this fix; buttons now sit directly on the popup content everywhere.
+
 # ITB v23.5 — PWA chrome, notifications and scorer UI polish
 
 ## v23.5.0

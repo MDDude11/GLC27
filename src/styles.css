@@ -92,6 +92,15 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .section-wrap { position: relative; z-index: 4; width: min(1180px, calc(100% - 34px)); margin-inline: auto; }
 .page-section { padding: 56px 0 34px; }
 
+.topbar-blur {
+  position: fixed; inset: 0 0 auto 0; z-index: 39;
+  height: calc(env(safe-area-inset-top, 0px) + 88px);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black 62%, transparent 100%);
+}
 .topbar {
   position: sticky; top: 12px; z-index: 40;
   width: min(1180px, calc(100% - 26px)); margin: 12px auto 0;
@@ -396,13 +405,13 @@ html[data-theme="light"] .paper-panel .comic-title { color:var(--ink); }
 /* Scorecard */
 .scorecard-list { display:grid; gap:20px; }
 .scorecard-innings { min-width:0; }
-.scorecard-title { display:grid; grid-template-columns:auto 1fr auto; align-items:end; gap:12px; padding:9px 0; border-bottom:3px solid currentColor; }
+.scorecard-title { display:grid; grid-template-columns:auto 1fr auto; align-items:end; gap:12px; padding:9px 0; border-bottom:3px solid var(--line); }
 .scorecard-title b { font-family:"Bangers"; font-size:calc(30px * var(--text-scale)); }
 .scorecard-title strong { justify-self:end; font-family:"Bangers"; font-size:calc(31px * var(--text-scale)); line-height:.9; }
 .scorecard-title span { color:#645c50; font-family:"Barlow Condensed"; font-size:calc(10px * var(--text-scale)); font-weight:900; text-transform:uppercase; }
 .scorecard-table { width:100%; }
 .table-head, .table-row { display:grid; grid-template-columns:minmax(0,1.7fr) repeat(4,46px); gap:8px; align-items:center; }
-.table-head { padding:9px 0 6px; border-bottom:2px solid currentColor; font-family:"Barlow Condensed"; font-size:calc(9px * var(--text-scale)); font-weight:900; letter-spacing:.1em; text-transform:uppercase; }
+.table-head { padding:9px 0 6px; border-bottom:2px solid var(--line); font-family:"Barlow Condensed"; font-size:calc(9px * var(--text-scale)); font-weight:900; letter-spacing:.1em; text-transform:uppercase; }
 .table-row { padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:calc(12px * var(--text-scale)); }
 .table-row > span:first-child { min-width:0; overflow-wrap:anywhere; }
 .table-row > span:not(:first-child), .table-row > b { text-align:right; }
@@ -501,7 +510,7 @@ select option { background:var(--paper-light); color:var(--ink); font-family:"DM
 .modal-close-button { position:relative; z-index:3; flex:0 0 auto; align-self:flex-start; padding:9px 11px; border:3px solid var(--line); background:var(--paper-light); color:var(--ink); box-shadow:4px 5px 0 var(--line); font-family:"Barlow Condensed"; font-size:calc(11px * var(--text-scale)); font-weight:900; letter-spacing:.08em; text-transform:uppercase; transition:.13s ease; }
 .modal-scroll-content { min-height:0; overflow:auto; padding:20px 22px; }
 .modal-shell > p { padding:0 22px; color:var(--ink-soft); line-height:1.5; }
-.modal-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; padding:14px 22px 20px; border-top:2px solid var(--line-soft); background:color-mix(in srgb,var(--paper) 96%,transparent); }
+.modal-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; padding:12px 22px 20px; border-top:0; background:transparent; box-shadow:none; }
 .dismissed-lock { padding:13px; border:3px solid var(--line); background:var(--paper-2); box-shadow:5px 6px 0 var(--line); margin-bottom:14px; }
 .dismissed-lock > span { display:block; color:#5e564b; font-family:"Barlow Condensed"; font-size:calc(9px * var(--text-scale)); font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
 .dismissed-fixed { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; margin-top:7px; }
@@ -571,7 +580,7 @@ select option { background:var(--paper-light); color:var(--ink); font-family:"DM
 .chart-bar b { position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-family:"Barlow Condensed"; font-size:calc(10px * var(--text-scale)); }
 .chart-bar-wrap small { font-family:"Barlow Condensed"; font-size:calc(9px * var(--text-scale)); font-weight:900; }
 .future-rr-panel { margin:8px 22px 22px; padding:17px; border:2px solid var(--line); background:var(--surface-2); color:var(--text); box-shadow:5px 6px 0 var(--line); }
-.future-rr-panel .section-title { border-bottom:2px solid currentColor; }
+.future-rr-panel .section-title { border-bottom:2px solid var(--line); }
 .future-rr-panel h3 { margin:4px 0 0; font-family:"Bangers"; font-size:calc(30px * var(--text-scale)); letter-spacing:.03em; }
 .future-rr-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; margin-top:12px; }
 .future-rr-grid article { min-width:0; padding:10px; border:2px solid var(--line); background:var(--paper); color:var(--ink); box-shadow:3px 4px 0 var(--line); }
@@ -709,6 +718,7 @@ html[data-compact="1"] .run-pad { gap:6px; }
   .landing-vector-art { width:min(100%, 320px); height:min(100%, 350px); }
   .topbar { padding:8px; }
   .topbar nav { gap:2px; }
+  .topbar-blur { height: calc(env(safe-area-inset-top, 0px) + 104px); }
   .nav-link { padding:7px 9px; font-size:calc(10px * var(--text-scale)); }
   .landing-copy { padding-left:4px; }
   .landing-title { font-size:calc(61px * var(--text-scale)); }
@@ -2653,7 +2663,7 @@ html:not([data-theme="light"]) .admin-push-form textarea { background:var(--surf
 .retirement-return-modal > .incoming-slot {
   margin-left:20px; margin-right:20px;
 }
-.wicket-modal .modal-scroll-content { padding:18px 0 20px; overflow:visible !important; }
+.wicket-modal .modal-scroll-content { padding:18px 0 20px; }
 .new-batsman-modal > label, .retirement-modal > label { display:grid; gap:8px; margin-top:12px; font-family:"Barlow Condensed"; font-size:calc(11px * var(--text-scale)); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
 .new-batsman-modal select, .retirement-modal select, .wicket-modal select {
   width:100%; height:48px; min-height:48px; padding:10px 42px 10px 12px !important;

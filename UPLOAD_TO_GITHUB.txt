@@ -1,4 +1,4 @@
-GLC27 ITB v23.0.0 — Scorer controls + reliability + UI polish
+GLC27 ITB v23.7.0 — PWA theming fixes, popup polish and viewer ball-by-ball
 
 Copy the CONTENTS of this folder into the repository root, not the containing folder itself.
 The repository root must directly contain .github, public, src, package.json, package-lock.json, vite.config.js and the HTML entry files.
